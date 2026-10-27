@@ -47,6 +47,12 @@ test('the floor edge follows sine, while pair twists the top edge', () => {
   assert.ok(Math.abs(edges(theta, look).top - edges(theta, look).floor) < .6);
 });
 
+test('a lone pair still ripples the top edge, but one tone alone never breathes', () => {
+  const alone = {a: 110, b: 220, gain: 0, pairGain: .12, existsA: 0, existsB: 1, slow: 0, relative: 0};
+  assert.notEqual(edges(1.3, alone).top, edges(1.3, {...alone, b: 330}).top);
+  assert.equal(edges(1.3, alone).top, edges(1.3, {...alone, relative: .25}).top);
+});
+
 test('judd units sit at equal intervals and people walk deterministically', () => {
   const units = unitPositions();
   assert.ok(units.length > 8);

@@ -60,11 +60,12 @@ export function bodyAt(s, side = 0) {
 
 // floor edge: sine ripples the steel; top edge: torque leans the plate, breathing with pair's relative phase
 export function edges(theta, look) {
-  const level = (look.gain ?? .12) / .12, pairOn = look.gain > 0 ? Math.min(1, (look.pairGain ?? 0) / look.gain) : 0;
+  const levelA = (look.gain ?? .12) / .12, levelB = (look.pairGain ?? 0) / .12;
+  const existsA = look.existsA ?? (look.gain > 0 ? 1 : 0), existsB = look.existsB ?? (look.pairGain > 0 ? 1 : 0), both = Math.min(existsA, existsB);
   const base = wallRadius(theta);
-  const floor = base + .05 * level * Math.sin(theta * look.a / 10 - TAU * (look.slow || 0));
-  const breath = .6 + .4 * pairOn * Math.sin(TAU * (look.relative || 0));
-  const top = base + SPIRAL.lean * breath * Math.sin(2 * theta + .9) + .05 * level * pairOn * Math.sin(theta * (look.b ?? look.a) / 10 - TAU * ((look.slow || 0) + (look.relative || 0)));
+  const floor = base + .05 * levelA * Math.sin(theta * look.a / 10 - TAU * (look.slow || 0));
+  const breath = .6 + .4 * both * Math.sin(TAU * (look.relative || 0));
+  const top = base + SPIRAL.lean * breath * Math.sin(2 * theta + .9) + .05 * levelB * Math.sin(theta * (look.b ?? look.a) / 10 - TAU * ((look.slow || 0) + both * (look.relative || 0)));
   return {floor, top};
 }
 

@@ -63,7 +63,7 @@ export function createEngine(ctx, start = ctx.currentTime) {
   const room = add(ctx.createBufferSource()), roomBand = filter('bandpass', 450, .6), roomGain = gain();
   room.buffer = noise; room.loop = true; room.connect(roomBand); roomBand.connect(roomGain); roomGain.connect(dry); roomGain.gain.value = 0; room.start(start);
 
-  let dead = false, values = {a: 110, b: 110.25, gain: .12, walk: 0, side: 0, metal: .5, people: 0, linger: 4}, peopleTime = 0, generation = 1;
+  let dead = false, values = {a: null, b: null, gain: .12, walk: 0, side: 0, metal: 0, people: 0, linger: .2}, peopleTime = 0, generation = 1;
   const recent = [];
   const remember = event => { recent.push(event); while (recent.length > 160) recent.shift(); };
   const at = local => start + local;
@@ -80,7 +80,7 @@ export function createEngine(ctx, start = ctx.currentTime) {
   }
   function strike(time, level, panValue, damp) {
     const p = ctx.createStereoPanner(); p.pan.value = clamp(panValue, -1, 1); p.connect(dry);
-    const base = pair.a * 2, parts = [];
+    const base = (pair.existsA >= pair.existsB ? pair.a : pair.b) * 2, parts = [];
     STRIKE.ratios.forEach((ratio, i) => {
       const f = base * ratio; if (f > ctx.sampleRate * .45) return;
       const o = ctx.createOscillator(), g = ctx.createGain(), decay = STRIKE.decays[i] * (1 - .45 * damp) + .08;
@@ -97,7 +97,7 @@ export function createEngine(ctx, start = ctx.currentTime) {
   function tick(time) {
     if (dead) return;
     const local = Math.max(0, time - start), ahead = local + LOOKAHEAD;
-    pair.advance(local);
+    const wallsNow = pair.advance(local).walls;
     const events = walker.advance(ahead), w = walker.snapshot(), damp = w.damp, body = bodyAt(w.s, w.side);
     for (const e of events.steps) {
       const b = bodyAt(e.s, e.side);
@@ -111,7 +111,7 @@ export function createEngine(ctx, start = ctx.currentTime) {
       remember({type: 'unit', time: e.time, index: e.index, x: b.x, y: b.y, theta: b.theta, metal: values.metal});
     }
     for (const e of peopleSteps(values.people, peopleTime, ahead)) {
-      const distance = Math.hypot(e.x - body.x, e.y - body.y), occluded = Math.abs(e.r - body.r) > .9 || Math.abs(e.theta - body.theta) > Math.PI / 2;
+      const distance = Math.hypot(e.x - body.x, e.y - body.y), occluded = wallsNow > .5 && (Math.abs(e.r - body.r) > .9 || Math.abs(e.theta - body.theta) > Math.PI / 2);
       step(at(e.time), .4 / (1 + distance * .5) * (occluded ? .35 : 1), panTo(body, e.x, e.y) * .8, occluded ? 320 : 1000 * (1 - .5 * damp) + 200);
       remember({type: 'person', time: e.time, index: e.index, x: e.x, y: e.y, theta: e.theta, r: e.r, outer: e.outer, inner: e.inner, occluded, foot: e.foot, heading: [e.heading[0] * e.direction, e.heading[1] * e.direction]});
     }
@@ -123,12 +123,13 @@ export function createEngine(ctx, start = ctx.currentTime) {
     const pans = [outerPan, -outerPan], dists = [outerD, innerD];
     walls.forEach((wall, i) => {
       param(wall.d.delayTime, 2 * dists[i] / SPEED, now, .08);
-      param(wall.g.gain, .55 / (1 + 1.6 * dists[i]), now, .08);
+      param(wall.g.gain, wallsNow * .55 / (1 + 1.6 * dists[i]), now, .08);
       param(wall.p.pan, pans[i], now, .2);
       param(wall.lp.frequency, 7000 * (1 - damp) + 400, now, .2);
     });
     param(loop.delayTime, clamp(2 * (outerD + innerD) / SPEED, .006, .19), now, .1);
     param(loopFb.gain, .5 * (1 - .4 * damp), now, .2);
+    param(loopOut.gain, .3 * wallsNow, now, .2);
     param(loopLp.frequency, 4000 * (1 - damp) + 300, now, .2);
     param(shelf.gain, 6 * near, now, .15);
     param(dark.frequency, 9000 * (1 - damp) ** 2 + 380, now, .2);
@@ -147,15 +148,18 @@ export function createEngine(ctx, start = ctx.currentTime) {
     if (dead) return;
     const t = Math.max(start, time), local = t - start;
     values = {...values, ...v};
+    const before = pair.advance(local), silent = [before.gain < 1e-3, before.pairGain < 1e-3];
     pair.target(values, local);
     walker.target({walk: values.walk, side: values.side}, Math.max(local, walker.time));
     voices.forEach((voice, i) => {
-      const f = i ? (values.b ?? values.a) : values.a;
-      for (const osc of voice.oscillators) {
-        param(osc.o.frequency, Math.min(f * osc.ratio, ctx.sampleRate * .45), t);
+      const f = i ? values.b : values.a;
+      if (f !== null && f !== undefined) for (const osc of voice.oscillators) {
+        const hz = Math.min(f * osc.ratio, ctx.sampleRate * .45);
+        if (silent[i]) { osc.o.frequency.cancelScheduledValues(t); osc.o.frequency.setValueAtTime(hz, t); }
+        else param(osc.o.frequency, hz, t);
         if (osc.ratio !== 1) param(osc.g.gain, f * osc.ratio < ctx.sampleRate * .45 ? osc.amp * values.metal : 0, t, .3);
       }
-      param(voice.level.gain, i && values.b === null ? 0 : values.gain, t);
+      param(voice.level.gain, f === null || f === undefined ? 0 : values.gain, t);
     });
     tick(t);
   }

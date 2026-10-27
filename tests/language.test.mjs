@@ -2,33 +2,35 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {compile, evaluateAt} from '../language.mjs';
 
-test('the walking score has defaults, depth and arithmetic', () => {
-  const p = compile('sine 110\npair sine + 1/4\nwalk 1/3\nside sin(t/7)/2\nmetal .6\npeople 3\nlinger 6');
-  const {values, errors} = evaluateAt(p, {t: 0, depth: 0});
-  assert.deepEqual(errors, []);
-  assert.equal(values.a, 110);
-  assert.equal(values.b, 110.25);
-  assert.equal(values.walk, 1 / 3);
-  assert.equal(values.side, 0);
-  assert.equal(values.metal, .6);
-  assert.equal(values.people, 3);
-  assert.equal(values.linger, 6);
-  assert.equal(values.gain, .12);
+const ZERO = {a: null, b: null, gain: .12, walk: 0, side: 0, metal: 0, people: 0, linger: .2};
 
-  const q = compile('sine 110 + depth*40\nside -1');
-  const v = evaluateAt(q, {t: 0, depth: .5}).values;
-  assert.equal(v.a, 130);
-  assert.equal(v.side, -1);
-  assert.equal(v.walk, 1 / 3);
-  assert.equal(v.people, 0);
-  assert.equal(v.metal, .5);
-  assert.equal(v.linger, 4);
+test('the zero point: an empty score is valid and nothing sounds or moves', () => {
+  for (const text of ['', '\n\n', '# nothing yet']) {
+    const {values, errors} = evaluateAt(compile(text), {t: 12, depth: 0});
+    assert.deepEqual(errors, []);
+    assert.deepEqual(values, ZERO);
+  }
+});
+
+test('each line adds only itself: a lone sine does not walk, beat, ring or crowd', () => {
+  assert.deepEqual(evaluateAt(compile('sine 110'), {t: 30, depth: 0}).values, {...ZERO, a: 110});
+  assert.deepEqual(evaluateAt(compile('pair 220'), {t: 0, depth: 0}).values, {...ZERO, b: 220});
+  assert.deepEqual(evaluateAt(compile('walk 1/3'), {t: 0, depth: 0}).values, {...ZERO, walk: 1 / 3});
+  assert.deepEqual(evaluateAt(compile('sine 110\npair sine + 1/4'), {t: 0, depth: 0}).values, {...ZERO, a: 110, b: 110.25});
+});
+
+test('the full language still computes with depth, time and arithmetic', () => {
+  const p = compile('sine 110 + depth*40\npair sine + 1/4\nwalk 1/3\nside sin(t/7)/2\nmetal .6\npeople 2.6\nlinger 6');
+  const {values, errors} = evaluateAt(p, {t: 0, depth: .5});
+  assert.deepEqual(errors, []);
+  assert.deepEqual(values, {a: 130, b: 130.25, gain: .12, walk: 1 / 3, side: 0, metal: .6, people: 3, linger: 6});
 });
 
 test('invalid scores are rejected with lowercase line-numbered messages', () => {
-  for (const text of ['sine 0', 'sine 110\nwalk 3', 'sine 110\nside 2', 'sine 110\nmetal 2', 'sine 110\npeople 9',
-    'sine 110\nlinger 0', 'sine 110\nfoo 2', 'sine 110\nsine 220', 'sine globalThis.alert(1)', 'walk 1', 'sine sine'])
+  for (const text of ['sine 0', 'walk 3', 'side 2', 'metal 2', 'people 9', 'linger 0', 'foo 2', 'sine 110\nsine 220',
+    'sine globalThis.alert(1)', 'sine sine', 'pair sine + 1/4', 'walk 1\npair off\npair 200'])
     assert.throws(() => compile(text), e => /^line \d+: /.test(e.message) && e.message === e.message.toLowerCase(), text);
+  assert.throws(() => compile('walk 1/3\npair sine * 2'), /line 2: .*sine/);
 });
 
 test('a later out-of-range line holds its last value while the other lines keep moving', () => {
@@ -43,8 +45,6 @@ test('a later out-of-range line holds its last value while the other lines keep 
   assert.equal(later.values.side, Math.sin(30));
 });
 
-test('people are whole walkers and pair off removes the second wall tone', () => {
-  const v = evaluateAt(compile('sine 110\npair off\npeople 2.6'), {t: 0, depth: 0}).values;
-  assert.equal(v.people, 3);
-  assert.equal(v.b, null);
+test('pair off is the same as no pair', () => {
+  assert.equal(evaluateAt(compile('sine 110\npair off'), {t: 0, depth: 0}).values.b, null);
 });

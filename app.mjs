@@ -5,15 +5,16 @@ import {bodyAt} from './spiral.mjs';
 
 const $ = id => document.getElementById(id);
 const code = $('code'), mirror = document.querySelector('.mirror');
-const KEY = 'im-on-one-score';
 let ctx, engine, timer, origin = 0, running = false, generation = 0, program, applied = '', last = null, frozen, imageURL;
 
-try { const saved = localStorage.getItem(KEY); if (saved) { compile(saved); code.value = saved; } } catch {}
-program = compile(code.value); applied = code.value;
+// the zero point: every visit starts from an empty score
+code.value = '';
+program = compile(''); applied = '';
 
 function idle(values) {
-  const v = values || evaluateAt(program, {t: 0, depth: 0}).values;
-  return {time: 0, a: v.a, b: v.b ?? v.a, gain: v.gain, pairGain: v.b === null ? 0 : v.gain, pair: v.b !== null, phaseA: 0, phaseB: 0, relative: 0, slow: 0, s: 0, side: v.side, speed: 0, depth: 0, damp: 0, travelled: 0, body: bodyAt(0, v.side), people: [], events: [], metal: v.metal, linger: v.linger, peopleCount: 0};
+  const v = values || evaluateAt(program, {t: 0, depth: 0}).values, hasA = v.a !== null, hasB = v.b !== null;
+  return {time: 0, a: v.a ?? 110, b: v.b ?? v.a ?? 110, gain: hasA ? v.gain : 0, pairGain: hasB ? v.gain : 0, pair: hasB, existsA: +hasA, existsB: +hasB, walls: +(hasA || hasB),
+    phaseA: 0, phaseB: 0, relative: 0, slow: 0, s: 0, side: v.side, speed: 0, depth: 0, damp: 0, travelled: 0, body: bodyAt(0, v.side), people: [], events: [], metal: v.metal, linger: v.linger, peopleCount: 0};
 }
 frozen = idle();
 const state = () => running ? engine.snapshot(ctx.currentTime) : frozen;
@@ -46,7 +47,6 @@ function update() {
     return false;
   }
   program = next; applied = code.value; runtimeKey = ''; mark([]); draft();
-  try { localStorage.setItem(KEY, applied); } catch {}
   if (running) tick(); else { frozen = idle(); }
   return true;
 }
@@ -91,6 +91,7 @@ document.addEventListener('drop', e => {
   $('image').src = imageURL; $('image').hidden = false;
 });
 mark([]);
+code.focus();
 createVisual($('visual'), () => ({state: state(), running, generation}));
 
 window.imOnOne = {

@@ -2,7 +2,8 @@
 const NAMES = ['t', 'depth', 'sine', 'pi'];
 const FUNCTIONS = ['sin', 'cos', 'abs'];
 const ORDER = ['sine', 'pair', 'gain', 'walk', 'side', 'metal', 'people', 'linger'];
-const DEFAULTS = {pair: 'sine+1/4', gain: '.12', walk: '1/3', side: 'sin(t/7)/2', metal: '.5', people: '0', linger: '4'};
+// the zero point: a word that is not written adds nothing (no tone, standing still, no metal, nobody, dry)
+const DEFAULTS = {gain: '.12', walk: '0', side: '0', metal: '0', people: '0', linger: '.2'};
 const RANGES = {
   sine: [30, 2000, 'sine 30–2000 hz'],
   pair: [30, 2000, 'pair 30–2000 hz'],
@@ -55,7 +56,7 @@ export function evaluate(rule, env = {}) {
     if (n.op === 't') return env.t ?? 0;
     if (n.op === 'depth') return env.depth ?? 0;
     if (n.op === 'pi') return Math.PI;
-    if (n.op === 'sine') { if (!Number.isFinite(env.sine)) throw Error('sine cannot refer to itself'); return env.sine; }
+    if (n.op === 'sine') { if (!Number.isFinite(env.sine)) throw Error(env.self ? 'sine cannot refer to itself' : 'there is no sine line to refer to'); return env.sine; }
     const a = walk(n.a);
     if (n.op === 'sin') return Math.sin(a);
     if (n.op === 'cos') return Math.cos(a);
@@ -87,8 +88,7 @@ export function compile(source) {
     program.rules[key] = expression(value, line);
     program.lines[key] = line;
   }
-  if (!program.rules.sine) fail(1, 'sine frequency required');
-  for (const key of ORDER) if (!program.rules[key] && !(key === 'pair' && program.off) && DEFAULTS[key]) program.rules[key] = {...expression(DEFAULTS[key], 0), implicit: true};
+  for (const key of ORDER) if (!program.rules[key] && DEFAULTS[key]) program.rules[key] = {...expression(DEFAULTS[key], 0), implicit: true};
   const {errors} = evaluateAt(program, {t: 0, depth: 0});
   if (errors.length) throw Error(`line ${errors[0].line}: ${errors[0].message}`);
   return program;
@@ -100,10 +100,10 @@ export function evaluateAt(program, env = {}, previous = null) {
   const values = {}, errors = [];
   for (const key of ORDER) {
     const out = NAMES_OUT[key] || key;
-    if (key === 'pair' && program.off) { values.b = null; continue; }
     const rule = program.rules[key];
+    if (!rule) { values[out] = null; continue; }
     try {
-      let value = evaluate(rule, {t: env.t ?? 0, depth: env.depth ?? 0, sine: key === 'sine' ? undefined : values.a});
+      let value = evaluate(rule, {t: env.t ?? 0, depth: env.depth ?? 0, sine: key === 'sine' ? undefined : values.a, self: key === 'sine'});
       if (key === 'people') value = Math.round(value);
       const [low, high, message] = RANGES[key];
       if (value < low || value > high) throw Error(`line ${rule.line}: ${message}`);

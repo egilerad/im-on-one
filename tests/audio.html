@@ -22,6 +22,29 @@ const energy = (x, from = 0, to = x.length / rate) => { let sum = 0; for (let i 
 const bright = (x, from, to) => { let d = 0, e = 0; for (let i = Math.floor(from * rate) + 1; i < Math.floor(to * rate); i++) { d += (x[i] - x[i - 1]) ** 2; e += x[i] * x[i]; } return d / (e || 1e-12); };
 const results = {};
 try {
+  const zero = {a: null, b: null, gain: .12, walk: 0, side: 0, metal: 0, people: 0, linger: .2};
+  // the zero point is silent
+  const nothing = await render(zero, 3);
+  results.zero = energy(nothing.left) + energy(nothing.right);
+  if (!(results.zero < 1e-8)) throw Error('the zero point is not silent');
+
+  // a lone sine is only a steady tone: no beating, no footsteps (measured after the walls have faded in)
+  const lone = await render({...zero, a: 110}, 6);
+  const steady = [3.5, 4, 4.5, 5].map(t => energy(lone.left, t, t + .08));
+  results.lone = steady;
+  if (Math.max(...steady) > Math.min(...steady) * 1.3) throw Error('a lone sine pulsed');
+
+  // a voice entering from silence starts at its own pitch (no glide from an old one)
+  const enter = await render(zero, 2.5, [{time: 1.5, values: {a: 220}}]);
+  let crossings = 0; for (let i = Math.floor(1.6 * rate); i < Math.floor(2.1 * rate); i++) if (enter.left[i - 1] < 0 && enter.left[i] >= 0) crossings++;
+  results.enter = crossings / .5;
+  if (Math.abs(results.enter - 220) > 12) throw Error('entering voice glided: ' + results.enter);
+
+  // the walls come with the sines: footsteps in the open have no wall reflections
+  const open = await render({...zero, walk: 1}, 8), walled = await render({...zero, walk: 1, a: 110, gain: 0}, 8);
+  results.openWalled = [energy(open.left), energy(walled.left)];
+  if (!(energy(walled.left) > 1.2 * energy(open.left))) throw Error('walls did not arrive with the sine');
+
   // all elements together stay finite and bounded
   const all = await render({...base, walk: 1, metal: .7, people: 3}, 12);
   if (all.peak >= 1 || energy(all.left) < .01) throw Error('invalid full output ' + all.peak);
@@ -59,9 +82,10 @@ try {
   results.stable = [energy(long.left, 4, 6), energy(long.left, 18, 20)];
   if (!(results.stable[1] < results.stable[0] * 1.5)) throw Error('feedback grew');
 
-  // going deeper darkens the tones consistently (measured in still windows without footsteps)
+  // going deeper darkens the tones consistently: compare with standing still at the entrance (same window, no footsteps)
   const deep = await render({...base, metal: .8}, 40, [{time: 4, values: {walk: 2}}, {time: 30, values: {walk: 0}}]);
-  results.bright = [bright(deep.left, 1, 3), bright(deep.left, 36, 39)];
+  const entrance = await render({...base, metal: .8}, 40);
+  results.bright = [bright(entrance.left, 36, 39), bright(deep.left, 36, 39)];
   results.deepStable = [energy(deep.left, 31, 33), energy(deep.left, 37, 39)];
   if (results.deepStable[1] > results.deepStable[0] * 1.2) throw Error('feedback grew deep inside');
   if (!(results.bright[1] < results.bright[0] * .7)) throw Error('sound did not dampen with depth');

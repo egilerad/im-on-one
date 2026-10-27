@@ -44,7 +44,7 @@ export function createVisual(canvas, getData) {
     if (t > END + .2) return r <= innermost(t) + .02;
     return r <= wallRadius(t) + .02 && r >= wallRadius(t + TAU) - .02;
   }
-  function ring(ctx, x, y, radius, theta, alpha, seed) {
+  function ring(ctx, x, y, radius, theta, alpha, seed, clip = true) {
     if (radius <= 0 || alpha < .004) return;
     ctx.strokeStyle = `rgba(0,0,0,${alpha.toFixed(3)})`; ctx.lineWidth = 1.3;
     const steps = Math.max(24, Math.min(120, Math.round(radius * 30)));
@@ -52,7 +52,7 @@ export function createVisual(canvas, getData) {
     let pen = false;
     for (let i = 0; i <= steps; i++) {
       const a = TAU * i / steps, wob = 1 + .04 * (hash(seed + i * .7) - .5), px = x + Math.cos(a) * radius * wob, py = y + Math.sin(a) * radius * wob;
-      const ok = inside(px, py, theta) && hash(seed * 3.1 + Math.floor(i / 3)) > .18;
+      const ok = (!clip || inside(px, py, theta)) && hash(seed * 3.1 + Math.floor(i / 3)) > .18;
       const [sx, sy] = Q(px, py);
       if (ok && pen) ctx.lineTo(sx, sy); else if (ok) ctx.moveTo(sx, sy);
       pen = ok;
@@ -75,7 +75,7 @@ export function createVisual(canvas, getData) {
       for (const grit of print.grit) { const size = grit.size * k * .5 + .7; tg.fillRect(grit.x * k, grit.y * k, size, size); }
       tg.restore();
     }
-    if (e.type === 'unit') {
+    if (e.type === 'unit' && e.metal > 0) {
       const [x, y] = Q(e.x, e.y);
       tg.strokeStyle = `rgba(0,0,0,${(.08 + .2 * (e.metal ?? .5)).toFixed(3)})`; tg.lineWidth = .7;
       for (let i = 0; i < 7; i++) { const a = TAU * hash(e.time + i), l = (.2 + .5 * hash(e.time * 2 + i)) * k; tg.beginPath(); tg.moveTo(x, y); tg.lineTo(x + Math.cos(a) * l, y + Math.sin(a) * l); tg.stroke(); }
@@ -93,7 +93,7 @@ export function createVisual(canvas, getData) {
   // the body rubbing along a wall it walks close to
   function smudge(s) {
     const b = s.body, near = Math.max(0, 1 - Math.min(b.outer, b.inner) / .8);
-    if (near < .3 || s.time - lastSmudge < .12) return;
+    if ((s.walls ?? 1) < .5 || near < .3 || s.time - lastSmudge < .12) return;
     lastSmudge = s.time;
     const outer = b.outer < b.inner, r = b.chamber ? innermost(b.theta) : outer ? wallRadius(b.theta) : wallRadius(b.theta + TAU);
     const [x, y] = P(r, b.theta), [tx, ty] = tangent(r, b.theta);
@@ -102,7 +102,9 @@ export function createVisual(canvas, getData) {
   }
 
   function drawWall(s) {
-    const look = {a: s.a, b: s.b, gain: s.gain, pairGain: s.pairGain, slow: s.slow, relative: s.relative}, rough = .022 * (1 + s.damp);
+    const wA = s.existsA ?? 1, wB = s.existsB ?? 1, both = Math.min(wA, wB), walls = s.walls ?? Math.max(wA, wB);
+    if (walls < .01) return;
+    const look = {a: s.a, b: s.b, gain: s.gain, pairGain: s.pairGain, existsA: wA, existsB: wB, slow: s.slow, relative: s.relative}, rough = .022 * (1 + s.damp);
     const floors = [], tops = [], leans = [];
     for (let i = 0; i <= N; i++) {
       const th = WALL_END * i / N, e = edges(th, look), wob = rough * (hash(i * .71) - .5) + .01 * Math.sin(i * .21 + s.time * .4);
@@ -112,11 +114,11 @@ export function createVisual(canvas, getData) {
     for (const [lo, hi, alpha] of [[0, .45, .09], [.45, .8, .17], [.8, 9, .3]]) {
       g.beginPath();
       for (let i = 0; i <= N; i += 3) if (leans[i] >= lo && leans[i] < hi) { g.moveTo(...floors[i]); g.lineTo(...tops[i]); }
-      g.strokeStyle = `rgba(0,0,0,${alpha})`; g.lineWidth = .6; g.stroke();
+      g.strokeStyle = `rgba(0,0,0,${(alpha * both).toFixed(3)})`; g.lineWidth = .6; g.stroke();
     }
-    line(g, tops); g.strokeStyle = 'rgba(0,0,0,.42)'; g.lineWidth = .8; g.stroke();
-    g.save(); g.translate(.7, .5); line(g, floors); g.strokeStyle = 'rgba(0,0,0,.3)'; g.lineWidth = 1.2; g.stroke(); g.restore();
-    line(g, floors); g.strokeStyle = 'rgba(0,0,0,.88)'; g.lineWidth = 1.7; g.stroke();
+    line(g, tops); g.strokeStyle = `rgba(0,0,0,${(.42 * wB).toFixed(3)})`; g.lineWidth = .8; g.stroke();
+    g.save(); g.translate(.7, .5); line(g, floors); g.strokeStyle = `rgba(0,0,0,${(.3 * wA).toFixed(3)})`; g.lineWidth = 1.2; g.stroke(); g.restore();
+    line(g, floors); g.strokeStyle = `rgba(0,0,0,${(.88 * wA).toFixed(3)})`; g.lineWidth = 1.7; g.stroke();
     // walls near the body press darker
     const b = s.body;
     for (const [which, dist] of [['outer', b.outer], ['inner', b.inner]]) {
@@ -127,11 +129,14 @@ export function createVisual(canvas, getData) {
       const from = Math.max(0, Math.floor((centre - .45) / WALL_END * N)), to = Math.min(N, Math.ceil((centre + .45) / WALL_END * N));
       if (to <= from) continue;
       line(g, floors.slice(from, to + 1));
-      g.strokeStyle = `rgba(0,0,0,${(.25 + .6 * near).toFixed(3)})`; g.lineWidth = 1.7 + 3.4 * near; g.stroke();
+      g.strokeStyle = `rgba(0,0,0,${((.25 + .6 * near) * walls).toFixed(3)})`; g.lineWidth = 1.7 + 3.4 * near; g.stroke();
     }
   }
 
   function drawUnits(s) {
+    const shown = Math.min(1, (s.metal ?? 0) * 4);
+    if (shown <= 0) return;
+    g.globalAlpha = shown;
     const strikes = new Map();
     for (const e of s.events) if (e.type === 'unit') strikes.set(e.index, s.time - e.time);
     UNITS.forEach((th, i) => {
@@ -143,23 +148,24 @@ export function createVisual(canvas, getData) {
       g.beginPath(); for (const f of [-.5, 0, .5]) { g.moveTo(x + tx * L * f - nx * D * .7, y + ty * L * f - ny * D * .7); g.lineTo(x + tx * L * f + nx * D * .7, y + ty * L * f + ny * D * .7); }
       g.strokeStyle = 'rgba(0,0,0,.35)'; g.lineWidth = .5; g.stroke();
     });
+    g.globalAlpha = 1;
   }
 
   function drawRings(s) {
-    const maxAge = Math.max(1.5, Math.min(8, (s.linger ?? 4) * .8));
+    const maxAge = Math.max(1.5, Math.min(8, (s.linger ?? 4) * .8)), walls = s.walls ?? 1, clip = walls > .5;
     for (const e of s.events) {
       const age = s.time - e.time;
-      if (age < 0 || age > maxAge) continue;
+      if (age < 0 || age > maxAge || (e.type === 'unit' && !(e.metal > 0))) continue;
       const base = e.type === 'unit' ? .75 : e.type === 'step' ? .7 : e.occluded ? .1 : .3, fade = base * Math.exp(-age / (maxAge * .55)) * (1 - .3 * s.damp), radius = age * VIS_SPEED, seed = e.time * 13.7;
       const theta = e.theta, r = e.r ?? Math.hypot(e.x / SPIRAL.ex, e.y / SPIRAL.ey);
-      ring(g, e.x, e.y, radius, theta, fade, seed);
-      if (e.outer === undefined || e.type === 'unit') continue;
+      ring(g, e.x, e.y, radius, theta, fade, seed, clip);
+      if (e.outer === undefined || e.type === 'unit' || !clip) continue;
       // image sources behind each wall: the reflection returning into the corridor
       for (const [which, dist, imageR] of [['outer', e.outer, r + 2 * e.outer], ['inner', e.inner, r - 2 * e.inner]]) {
         if (radius < dist) continue;
         if (radius < dist + .4) bounce(e, which, s);
         const ix = imageR * Math.cos(theta) * SPIRAL.ex, iy = imageR * Math.sin(theta) * SPIRAL.ey;
-        ring(g, ix, iy, radius, theta, fade * .7, seed + (which === 'outer' ? 5 : 9));
+        ring(g, ix, iy, radius, theta, fade * .7 * walls, seed + (which === 'outer' ? 5 : 9));
       }
     }
   }
@@ -172,10 +178,11 @@ export function createVisual(canvas, getData) {
     }
     const b = s.body, [x, y] = Q(b.x, b.y);
     // reach lines from the body to each wall, darker as it nears
+    const walls = s.walls ?? 1;
     for (const [dist, r] of [[b.outer, b.r + b.outer], [b.inner, b.r - b.inner]]) {
-      if (b.chamber && r < b.r) continue;
+      if ((b.chamber && r < b.r) || walls < .02) continue;
       const near = Math.max(0, 1 - dist / 1.2), [wx, wy] = P(r, b.theta);
-      g.strokeStyle = `rgba(0,0,0,${(.25 + .65 * near).toFixed(3)})`; g.lineWidth = 1.1 + near; g.setLineDash([3, 3]);
+      g.strokeStyle = `rgba(0,0,0,${((.25 + .65 * near) * walls).toFixed(3)})`; g.lineWidth = 1.1 + near; g.setLineDash([3, 3]);
       g.beginPath(); g.moveTo(x, y); g.lineTo(wx, wy); g.stroke(); g.setLineDash([]);
     }
     // the body: a larger, darker jagged spiral turning with the slowed sine carrier

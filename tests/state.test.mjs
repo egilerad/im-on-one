@@ -18,6 +18,34 @@ test('frequency edits retain phase and smooth the same state used by sound and d
   assert.ok(s.snapshot().pairGain > 0 && s.snapshot().pairGain < .12);
 });
 
+test('a voice that enters from silence starts at its own pitch, and the walls appear with it', () => {
+  const s = new PairState();
+  s.target({a: null, b: null, gain: .12}, 0);
+  s.advance(10);
+  assert.equal(s.snapshot().slow, 0);
+  assert.equal(s.snapshot().existsA, 0);
+  s.target({a: 220, b: null, gain: .12}, 10);
+  assert.equal(s.snapshot().a, 220);
+  s.advance(10.05);
+  assert.ok(s.snapshot().gain > 0 && s.snapshot().gain < .12);
+  s.advance(13);
+  assert.ok(s.snapshot().existsA > .95);
+  assert.equal(s.snapshot().existsB, 0);
+  assert.ok(s.snapshot().slow > 0);
+  s.target({a: 220, b: 330, gain: .12}, 13);
+  assert.equal(s.snapshot().b, 330);
+  s.target({a: null, b: null, gain: .12}, 13);
+  s.advance(17);
+  assert.ok(s.snapshot().existsA < .05 && s.snapshot().gain < .001);
+});
+
+test('damping comes from walking in, not from waiting', () => {
+  const w = new Walker();
+  w.target({walk: 0, side: 0}, 0);
+  w.advance(900);
+  assert.equal(w.snapshot().damp, 0);
+});
+
 test('walking a third of a metre per second advances about ten metres in thirty seconds', () => {
   const w = new Walker();
   w.target({walk: 1 / 3, side: 0}, 0);

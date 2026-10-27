@@ -1,32 +1,44 @@
 import {PATH_LENGTH, CHAMBER_START, LOOP, SPIRAL, unitPositions, personAt} from './spiral.mjs';
 
 // frequencies use the same exponential smoothing applied to the audio params, so drawing and sound share phase.
+// a voice that is not written is silent; its wall fades away. a voice entering from silence starts at its own pitch.
 export class PairState {
   constructor() {
-    Object.assign(this, {time: 0, a: 110, b: 110.25, gain: 0, pairGain: 0, targetA: 110, targetB: 110.25, targetGain: 0, targetPairGain: 0, phaseA: 0, phaseB: 0, slow: 0, pair: true, tau: .12});
+    Object.assign(this, {time: 0, a: 110, b: 110.25, gain: 0, pairGain: 0, targetA: 110, targetB: 110.25, targetGain: 0, targetPairGain: 0,
+      phaseA: 0, phaseB: 0, slow: 0, pair: false, existsA: 0, existsB: 0, targetExistsA: 0, targetExistsB: 0, tau: .12, tauWalls: .6});
   }
   advance(time) {
     if (time < this.time) return this.snapshot();
-    const dt = time - this.time, k = Math.exp(-dt / this.tau);
+    const dt = time - this.time, k = Math.exp(-dt / this.tau), kw = Math.exp(-dt / this.tauWalls), cycles = {};
     for (const key of ['a', 'b']) {
       const target = key === 'a' ? this.targetA : this.targetB, old = this[key];
-      const cycles = target * dt + (old - target) * this.tau * (1 - k);
+      cycles[key] = target * dt + (old - target) * this.tau * (1 - k);
       this[key] = target + (old - target) * k;
-      if (key === 'a') { this.phaseA += cycles; this.slow += cycles / 110 * .18; } else this.phaseB += cycles;
     }
+    this.phaseA += cycles.a; this.phaseB += cycles.b;
+    // the slowed carrier (body turning, ripples travelling) moves only while a wall sounds
+    const presence = Math.max(this.existsA, this.existsB);
+    this.slow += (this.existsA >= this.existsB ? cycles.a : cycles.b) / 110 * .18 * presence;
     this.gain = this.targetGain + (this.gain - this.targetGain) * k;
     this.pairGain = this.targetPairGain + (this.pairGain - this.targetPairGain) * k;
+    this.existsA = this.targetExistsA + (this.existsA - this.targetExistsA) * kw;
+    this.existsB = this.targetExistsB + (this.existsB - this.targetExistsB) * kw;
     this.time = time;
     return this.snapshot();
   }
   target(v, time) {
     this.advance(time);
-    this.targetA = v.a; this.targetB = v.b ?? v.a; this.targetGain = v.gain;
-    this.pair = v.b !== null && v.b !== undefined; this.targetPairGain = this.pair ? v.gain : 0;
+    const hasA = v.a !== null && v.a !== undefined, hasB = v.b !== null && v.b !== undefined;
+    if (hasA) { if (this.gain < 1e-3) this.a = v.a; this.targetA = v.a; }
+    if (hasB) { if (this.pairGain < 1e-3) this.b = v.b; this.targetB = v.b; }
+    this.targetGain = hasA ? v.gain : 0; this.targetPairGain = hasB ? v.gain : 0;
+    this.targetExistsA = hasA ? 1 : 0; this.targetExistsB = hasB ? 1 : 0;
+    this.pair = hasB;
     return this.snapshot();
   }
   snapshot() {
-    return {time: this.time, a: this.a, b: this.b, gain: this.gain, pairGain: this.pairGain, pair: this.pair, phaseA: this.phaseA, phaseB: this.phaseB, relative: this.phaseB - this.phaseA, slow: this.slow};
+    return {time: this.time, a: this.a, b: this.b, gain: this.gain, pairGain: this.pairGain, pair: this.pair, phaseA: this.phaseA, phaseB: this.phaseB,
+      relative: this.phaseB - this.phaseA, slow: this.slow, existsA: this.existsA, existsB: this.existsB, walls: Math.max(this.existsA, this.existsB)};
   }
 }
 
@@ -61,7 +73,8 @@ export class Walker {
       this.travelled = tr1;
       this.s = s1 > CHAMBER_START + LOOP ? s1 - LOOP : s1;
       this.time = t0 + h;
-      this.damp = Math.max(this.damp, .8 * Math.min(1, this.s / PATH_LENGTH) + .2 * Math.min(1, this.time / 600));
+      // damping comes only from going in, and never lifts
+      this.damp = Math.max(this.damp, Math.min(1, this.s / PATH_LENGTH));
     }
     out.units.sort((x, y) => x.time - y.time);
     return out;
