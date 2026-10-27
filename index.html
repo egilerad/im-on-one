@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>i'm on one</title>
+<meta name="description" content="i'm on one: a livecoding walk through a torqued steel spiral.">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<img id="image" alt="" hidden>
+<canvas id="visual" aria-label="overhead plan: a torqued spiral wall, metal units, a walking body, other people and reflections"></canvas>
+<section class="score">
+<div class="editor">
+<textarea id="code" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off" aria-label="score" aria-invalid="false">sine 110
+pair sine + 1/4
+walk 1/3
+side sin(t/7)/2
+metal .5
+people 2
+linger 6</textarea>
+<div class="mirror" aria-hidden="true"></div>
+</div>
+</section>
+<nav class="transport" aria-label="transport"><button id="play" type="button">play</button><button id="stop" type="button" hidden>stop</button></nav>
+<p id="announce" class="sr" role="status" aria-live="polite"></p>
+<script type="module" src="app.mjs"></script>
+</body>
+</html>
