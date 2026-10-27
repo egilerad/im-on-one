@@ -24,7 +24,7 @@ people 2
 linger 6
 ```
 
-one statement per line. each word appears at most once. `#` starts a comment. only `sine` is required; anything you leave out uses the value shown here (`gain .12` and `people 0` are hidden defaults).
+one statement per line. each word appears at most once. `#` starts a comment. only `sine` is required. a line you leave out uses its default: `pair sine + 1/4`, `gain .12`, `walk 1/3`, `side sin(t/7)/2`, `metal .5`, `people 0`, `linger 4`.
 
 | word | what it is | range |
 |---|---|---|
