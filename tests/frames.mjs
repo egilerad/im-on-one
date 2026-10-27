@@ -14,7 +14,7 @@ await page.locator('#code').fill(score);
 await page.locator('#play').click();
 for (const [i, wait] of (process.env.FRAMES || '6,14').split(',').map(Number).entries()) {
   await page.waitForFunction(w => window.imOnOne.time > w, wait, {timeout: 120000});
-  const info = await page.evaluate(() => { const s = window.imOnOne.state; return {t: s.time, s: s.s, depth: s.depth, damp: s.damp, side: s.side, outer: s.body.outer, inner: s.body.inner, events: s.events.length, types: [...new Set(s.events.map(e => e.type))]}; });
+  const info = await page.evaluate(() => { const s = window.imOnOne.state, W = innerWidth, H = innerHeight, R = 6.9, k = W > 760 ? Math.min(W * .76 / (2 * R * 1.1), H * .9 / (2 * R * .9)) : 0, screen = p => [Math.round(W * .6 + p.x * k), Math.round(H * .5 - p.y * k)]; return {t: s.time, s: s.s, depth: s.depth, damp: s.damp, side: s.side, outer: s.body.outer, inner: s.body.inner, events: s.events.length, types: [...new Set(s.events.map(e => e.type))], body: screen(s.body), people: s.people.map(screen)}; });
   console.log(JSON.stringify(info));
   await page.screenshot({path: `tests/frame-${i}.png`});
 }

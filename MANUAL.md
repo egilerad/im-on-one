@@ -1,6 +1,6 @@
 # i'm on one — manual
 
-a livecoding walk through a steel spiral. two sine tones are the walls. a point is your body. the deeper it goes, the more the sound is dampened, and the longer it lingers.
+a livecoding walk through a steel spiral. two sine tones are the walls. a small jagged spiral is your body. the deeper it goes, the more the sound is dampened, and the longer it lingers.
 
 ## start
 
@@ -74,11 +74,11 @@ the difference between `pair` and `sine` is the beat you hear, and the same rela
 - between the walls, sound flutters back and forth at a pitch set by the corridor width;
 - dashed lines connect the body to both walls and darken as you get closer.
 
-**footsteps, reflections.** the body steps every 0.7 m and leaves footprints that slowly fade. each step sends a broken ring outward, held inside the corridor by the steel. arcs come back from each wall (drawn from mirror positions behind the walls, the way a reflection behaves), and the walls keep faint marks where sound struck them. the rings travel at a slowed, visible speed, not 343 m/s.
+**figures, footsteps, reflections.** your body is a black jagged spiral that turns with the sine (slowed down to be seen) and changes shape a little with every step. the body steps every 0.7 m and leaves rough, gritty scuffs that slowly fade. each step sends a broken ring outward, held inside the corridor by the steel. arcs come back from each wall (drawn from mirror positions behind the walls, the way a reflection behaves), and the walls keep faint marks where sound struck them. the rings travel at a slowed, visible speed, not 343 m/s.
 
 **judd's metal.** grey boxes sit at equal intervals (3.2 m) along the outer wall, like a row of identical units. walking past one rings it with clashing, struck-metal overtones, pitched from `sine`. the ring sounds closer when you walk near the outer wall, and darker deeper inside. `metal` also adds these overtones to the two wall tones themselves.
 
-**other people.** each walker is a grey dot moving at its own pace, in and out, with footprints and footsteps of their own. people behind a wall sound muffled. more people add a faint murmur of presence and slightly shorten the reverberation, as bodies absorb sound.
+**other people.** each walker is a smaller grey jagged spiral moving at its own pace, in and out, with footprints and footsteps of their own. people behind a wall sound muffled. more people add a faint murmur of presence and slightly shorten the reverberation, as bodies absorb sound.
 
 **images.** drag your own image onto the page and it sits faintly in grey behind the drawing. it stays on your computer; reload to remove it.
 

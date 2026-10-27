@@ -1,4 +1,5 @@
 import {SPIRAL, END, wallRadius, edges, unitPositions, bodyAt} from './spiral.mjs';
+import {jaggedSpiral, jaggedPrint} from './marks.mjs';
 
 // overhead plan, drawn roughly: steel edges, judd units, footprints, reflections and the body's rubbing at the walls.
 // every mark comes from the running sound state; ring speed is slowed so reflections can be seen.
@@ -64,10 +65,15 @@ export function createVisual(canvas, getData) {
     if (seen.has(key)) return;
     seen.set(key, e.time);
     if (e.type === 'step' || e.type === 'person') {
+      // an irregular scuff with grit, never a clean oval
       const [hx, hy] = e.heading || [1, 0], side = (e.foot ? 1 : -1) * .1, [x, y] = Q(e.x - hy * side, e.y + hx * side);
-      tg.save(); tg.translate(x, y); tg.rotate(-Math.atan2(hy, hx));
-      tg.fillStyle = `rgba(0,0,0,${e.type === 'step' ? .6 : e.occluded ? .1 : .22})`;
-      tg.beginPath(); tg.ellipse(0, 0, .13 * k, .06 * k, 0, 0, TAU); tg.fill(); tg.restore();
+      const seed = e.time * 31.7 + (e.index ?? 0) * 7, print = jaggedPrint(seed, {length: .27, width: .13});
+      const alpha = (e.type === 'step' ? .62 : e.occluded ? .1 : .24) * (.7 + .5 * hash(seed * 2));
+      tg.save(); tg.translate(x, y); tg.rotate(-Math.atan2(hy, hx) + (hash(seed) - .5) * .6);
+      tg.fillStyle = `rgba(0,0,0,${alpha.toFixed(3)})`;
+      tg.beginPath(); print.outline.forEach(([px, py], i) => i ? tg.lineTo(px * k, py * k) : tg.moveTo(px * k, py * k)); tg.closePath(); tg.fill();
+      for (const grit of print.grit) { const size = grit.size * k * .5 + .7; tg.fillRect(grit.x * k, grit.y * k, size, size); }
+      tg.restore();
     }
     if (e.type === 'unit') {
       const [x, y] = Q(e.x, e.y);
@@ -159,9 +165,10 @@ export function createVisual(canvas, getData) {
   }
 
   function drawFigures(s) {
+    // every person is a small jagged spiral; it re-jags with each footstep
     for (const p of s.people || []) {
-      const [x, y] = Q(p.x, p.y);
-      g.fillStyle = 'rgba(0,0,0,.4)'; g.beginPath(); g.arc(x, y, .11 * k, 0, TAU); g.fill();
+      const [x, y] = Q(p.x, p.y), seed = p.index * 101 + Math.floor(p.speed * s.time / SPIRAL.stride);
+      figure(x, y, jaggedSpiral(seed, {turns: 2, radius: .24}), -Math.atan2(p.heading[1], p.heading[0]) + s.time * .6 * p.direction, 'rgba(0,0,0,.58)', 1.15);
     }
     const b = s.body, [x, y] = Q(b.x, b.y);
     // reach lines from the body to each wall, darker as it nears
@@ -171,10 +178,16 @@ export function createVisual(canvas, getData) {
       g.strokeStyle = `rgba(0,0,0,${(.25 + .65 * near).toFixed(3)})`; g.lineWidth = 1.1 + near; g.setLineDash([3, 3]);
       g.beginPath(); g.moveTo(x, y); g.lineTo(wx, wy); g.stroke(); g.setLineDash([]);
     }
-    g.strokeStyle = 'rgba(0,0,0,.22)'; g.lineWidth = .8; g.beginPath();
-    for (let i = 0; i <= 28; i++) { const a = TAU * i / 28, rr = (.3 + .03 * (hash(i + Math.floor(s.time * 3)) - .5)) * k; i ? g.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr) : g.moveTo(x + rr, y); }
-    g.stroke();
-    g.fillStyle = '#000'; g.beginPath(); g.arc(x, y, .16 * k, 0, TAU); g.fill();
+    // the body: a larger, darker jagged spiral turning with the slowed sine carrier
+    const seed = 7 + Math.floor((s.travelled || 0) / SPIRAL.stride);
+    figure(x, y, jaggedSpiral(seed, {turns: 2.6, radius: .36}), -Math.atan2(b.heading[1], b.heading[0]) + TAU * (s.slow || 0), 'rgba(0,0,0,.95)', 1.9);
+    g.fillStyle = '#000'; g.beginPath(); g.arc(x, y, .05 * k, 0, TAU); g.fill();
+  }
+  function figure(x, y, pts, turn, style, width) {
+    const c = Math.cos(turn), sn = Math.sin(turn);
+    g.beginPath();
+    pts.forEach(([px, py], i) => { const X = x + (px * c - py * sn) * k, Y = y + (px * sn + py * c) * k; i ? g.lineTo(X, Y) : g.moveTo(X, Y); });
+    g.strokeStyle = style; g.lineWidth = width; g.lineJoin = 'miter'; g.miterLimit = 4; g.stroke(); g.lineJoin = 'round';
   }
 
   function draw(ms) {

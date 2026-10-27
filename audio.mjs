@@ -113,7 +113,7 @@ export function createEngine(ctx, start = ctx.currentTime) {
     for (const e of peopleSteps(values.people, peopleTime, ahead)) {
       const distance = Math.hypot(e.x - body.x, e.y - body.y), occluded = Math.abs(e.r - body.r) > .9 || Math.abs(e.theta - body.theta) > Math.PI / 2;
       step(at(e.time), .4 / (1 + distance * .5) * (occluded ? .35 : 1), panTo(body, e.x, e.y) * .8, occluded ? 320 : 1000 * (1 - .5 * damp) + 200);
-      remember({type: 'person', time: e.time, index: e.index, x: e.x, y: e.y, theta: e.theta, r: e.r, outer: e.outer, inner: e.inner, occluded});
+      remember({type: 'person', time: e.time, index: e.index, x: e.x, y: e.y, theta: e.theta, r: e.r, outer: e.outer, inner: e.inner, occluded, foot: e.foot, heading: [e.heading[0] * e.direction, e.heading[1] * e.direction]});
     }
     peopleTime = ahead;
 

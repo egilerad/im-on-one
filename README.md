@@ -2,7 +2,7 @@
 
 **[play it](https://egilerad.github.io/im-on-one/)** · [manual](MANUAL.md)
 
-a livecoding walk through a torqued steel spiral. two sine tones are the walls, a point is your body, and the sound becomes more dampened and lingering as it goes in. judd-like metal units ring as you pass them. other people walk too.
+a livecoding walk through a torqued steel spiral. two sine tones are the walls, a small jagged spiral is your body, and the sound becomes more dampened and lingering as it goes in. judd-like metal units ring as you pass them. other people walk too.
 
 ```text
 sine 110
