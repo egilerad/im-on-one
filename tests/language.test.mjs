@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {compile, evaluateAt} from '../language.mjs';
 
-const ZERO = {a: null, b: null, gain: .12, walk: 0, side: 0, metal: 0, people: 0, linger: .2};
+const ZERO = {a: null, b: null, gain: .12, walk: 0, side: 0, metal: 0, people: 0, linger: .2, size: 1, place: .12, strike: 0, every: 0, decay: 2, echo: .3, reach: 6};
 
 test('the zero point: an empty score is valid and nothing sounds or moves', () => {
   for (const text of ['', '\n\n', '# nothing yet']) {
@@ -23,7 +23,7 @@ test('the full language still computes with depth, time and arithmetic', () => {
   const p = compile('sine 110 + depth*40\npair sine + 1/4\nwalk 1/3\nside sin(t/7)/2\nmetal .6\npeople 2.6\nlinger 6');
   const {values, errors} = evaluateAt(p, {t: 0, depth: .5});
   assert.deepEqual(errors, []);
-  assert.deepEqual(values, {a: 130, b: 130.25, gain: .12, walk: 1 / 3, side: 0, metal: .6, people: 3, linger: 6});
+  assert.deepEqual(values, {...ZERO, a: 130, b: 130.25, walk: 1 / 3, metal: .6, people: 3, linger: 6});
 });
 
 test('invalid scores are rejected with lowercase line-numbered messages', () => {

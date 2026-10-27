@@ -14,7 +14,7 @@ program = compile(''); applied = '';
 function idle(values) {
   const v = values || evaluateAt(program, {t: 0, depth: 0}).values, hasA = v.a !== null, hasB = v.b !== null;
   return {time: 0, a: v.a ?? 110, b: v.b ?? v.a ?? 110, gain: hasA ? v.gain : 0, pairGain: hasB ? v.gain : 0, pair: hasB, existsA: +hasA, existsB: +hasB, walls: +(hasA || hasB),
-    phaseA: 0, phaseB: 0, relative: 0, slow: 0, s: 0, side: v.side, speed: 0, depth: 0, damp: 0, travelled: 0, body: bodyAt(0, v.side), people: [], events: [], metal: v.metal, linger: v.linger, peopleCount: 0};
+    phaseA: 0, phaseB: 0, relative: 0, slow: 0, s: 0, side: v.side, speed: 0, depth: 0, damp: 0, travelled: 0, body: bodyAt(0, v.side), people: [], events: [], metal: v.metal, linger: v.linger, peopleCount: 0, object: {place:v.place,size:v.size,enabled:v.metal>0}};
 }
 frozen = idle();
 const state = () => running ? engine.snapshot(ctx.currentTime) : frozen;
@@ -47,7 +47,7 @@ function update() {
     return false;
   }
   program = next; applied = code.value; runtimeKey = ''; mark([]); draft();
-  if (running) tick(); else { frozen = idle(); }
+  if (running) { tick(); engine.commit(last, ctx.currentTime); } else { frozen = idle(); }
   return true;
 }
 async function play() {
@@ -61,6 +61,7 @@ async function play() {
   generation++;
   last = evaluateAt(program, {t: 0, depth: 0}).values;
   engine.update(last, origin);
+  engine.commit(last, origin);
   running = true;
   clearInterval(timer); timer = setInterval(tick, 25);
   $('stop').hidden = false;

@@ -1,0 +1,123 @@
+<!doctype html><meta charset="utf-8"><pre id="result">running</pre><script type="module">
+import {createEngine} from '../audio.mjs';
+import {PATH_LENGTH, wallRadius, toPlan} from '../spiral.mjs';
+const rate = 22050, zero = {a:null,b:null,gain:.12,walk:0,side:0,metal:0,people:0,linger:.2,size:1,place:.12,strike:0,every:0,decay:2,echo:.3,reach:6};
+const results = {tests:[]};
+function assert(ok, message) { if (!ok) throw Error(message); }
+const energy = (x, from=0, to=x.length/rate) => { let e=0; for(let i=Math.floor(from*rate);i<Math.min(x.length,Math.floor(to*rate));i++) e+=x[i]*x[i]; return e; };
+async function render(v={}, seconds=4, actions=[], commit=true, times=null) {
+  const ctx=new OfflineAudioContext(2,Math.ceil(rate*seconds),rate), e=createEngine(ctx,0), values={...zero,...v};
+  if(commit) e.commit(values,0); else e.update(values,0);
+  const events=[], seen=new Set();
+  for(const t of times ?? Array.from({length:Math.ceil(seconds/.025)},(_,i)=>i*.025)) {
+    for(const a of actions) if(!a.done && t+1e-8>=a.time) { a.done=true; if(a.commit) e.commit(a.values,a.time); else e.update(a.values,a.time); }
+    e.update({},t);
+    for(const event of e.snapshot(t+.08).events) { const key=event.type+':'+event.time+':'+event.index; if(!seen.has(key)){seen.add(key);events.push(event);} }
+  }
+  const snapshot=e.snapshot(seconds), buffer=await ctx.startRendering();
+  let peak=0; for(let c=0;c<2;c++) for(const x of buffer.getChannelData(c)){assert(Number.isFinite(x),'nonfinite output');peak=Math.max(peak,Math.abs(x));}
+  const left=buffer.getChannelData(0),right=buffer.getChannelData(1); e.dispose();
+  return {left,right,peak,events:events.filter(e=>e.time<seconds-1e-8),snapshot,energy:energy(left)+energy(right)};
+}
+async function test(name,fn){ const detail=await fn();results.tests.push({name,detail}); }
+try {
+  await test('object alone and polling never strike',async()=>{
+    const a=await render({metal:1},4,[],false), b=await render({metal:1,strike:1},4,[],false);
+    assert(a.energy<1e-10 && b.energy<1e-10,'object presence or update created sound');
+    return [a.energy,b.energy];
+  });
+  await test('explicit commit strikes once despite polling',async()=>{
+    const r=await render({metal:1,strike:.8,decay:.3,echo:0},3);
+    const events=r.events.filter(e=>e.type==='unit');
+    assert(events.length===1,'expected one object strike, got '+events.length);
+    assert(r.energy>1e-4,'commit was inaudible'); assert(energy(r.left,1.5,3)<1e-8,'polling retriggered');
+    return {onsets:events.map(e=>e.time),energy:r.energy};
+  });
+  await test('repetition clock survives edits and skips throttled backlog',async()=>{
+    const r=await render({metal:1,strike:.6,every:.5,decay:.12,echo:0},3,[{time:.8,commit:true,values:{size:2}}]);
+    const onsets=r.events.filter(e=>e.type==='unit').map(e=>e.time);
+    assert(onsets.length===6 && onsets.every((t,i)=>Math.abs(t-i*.5)<1e-7),'repeat onsets '+onsets);
+    for(const t of [.5,1,1.5,2]) assert(energy(r.left,t,t+.12)>1e-5,'missing audible repetition '+t);
+    const throttled=await render({metal:1,strike:.6,every:.5,decay:.12,echo:0},5,[],true,[0,.025,3.1,3.2,3.5,4,4.5]);
+    const skipped=throttled.events.filter(e=>e.type==='unit').map(e=>e.time);
+    assert(!skipped.some(t=>t>.1 && t<3.1),'throttled backlog '+skipped);
+    assert(skipped.includes(3.5) && skipped.includes(4),'lost persistent phase '+skipped);
+    return {onsets,skipped};
+  });
+  await test('size is inverse struck pitch, independent of sine pitch',async()=>{
+    const small=await render({metal:1,strike:1,size:1,place:0,echo:0,decay:1}), large=await render({metal:1,strike:1,size:2,place:0,echo:0,decay:1});
+    function power(x,hz){let re=0,im=0;for(let i=100;i<6000;i++){re+=x[i]*Math.cos(2*Math.PI*hz*i/rate);im+=x[i]*Math.sin(2*Math.PI*hz*i/rate);}return re*re+im*im;}
+    const powers=[power(small.left,220),power(small.left,110),power(large.left,110),power(large.left,220)];
+    assert(powers[0]>powers[1]*30 && powers[2]>powers[3]*30,'size did not transpose spectrum '+powers);return powers;
+  });
+  await test('source distance, pan and occlusion affect the sound',async()=>{
+    const near=await render({metal:1,strike:1,place:0,reach:2,echo:0}), far=await render({metal:1,strike:1,place:.5,reach:2,echo:0});
+    const n=near.events.find(e=>e.type==='unit'), f=far.events.find(e=>e.type==='unit');
+    assert(near.energy>far.energy*5,'distance did not attenuate');
+    assert(n.occluded===false && f.occluded===true,'missing occlusion state');
+    const p=await render({metal:1,strike:1,place:.08,echo:0});
+    assert(Math.abs(Math.log(energy(p.left)/energy(p.right)))>.1,'source did not pan');
+    return {energies:[near.energy,far.energy],distance:[n.distance,f.distance],occluded:[n.occluded,f.occluded],pan:[energy(p.left),energy(p.right)]};
+  });
+  await test('echo makes an audible reflected tail independent of source decay',async()=>{
+    const dry=await render({metal:1,strike:1,place:0,decay:.1,echo:0},3), wet=await render({metal:1,strike:1,place:0,decay:.1,echo:1},3);
+    const tails=[energy(dry.left,.3,1.5),energy(wet.left,.3,1.5)];
+    assert(tails[0]<1e-9 && tails[1]>1e-5,'missing echo tail '+tails);return tails;
+  });
+  await test('visitors touch actual steel with localized contact sounds, not a murmur',async()=>{
+    const r=await render({people:4},10), contacts=r.events.filter(e=>e.type==='contact');
+    assert(contacts.length>=4,'visitors only stepped');
+    for(const c of contacts){const expected=toPlan(wallRadius(c.theta+(c.wall==='inner'?2*Math.PI:0)),c.theta);assert(Math.hypot(c.x-expected[0],c.y-expected[1])<1e-7,'contact not on steel');assert(c.kind && Number.isFinite(c.pan),'contact lacks spatial action');}
+    assert(energy(r.left,0,.3)<1e-10,'global visitor murmur remains');
+    for(const c of contacts.slice(0,4)) assert(energy(r.left,c.time,c.time+.2)+energy(r.right,c.time,c.time+.2)>1e-7,'silent contact');
+    return {contacts:contacts.length,first:contacts[0],energy:r.energy};
+  });
+  await test('object snapshot, independent sine, no crossing excitation and explicit reapply',async()=>{
+    const r=await render({metal:1,strike:.7,every:0},3,[{time:1,commit:true,values:{size:2}}]);
+    assert(r.events.filter(e=>e.type==='unit').length===2,'reapply must strike exactly once');
+    assert(r.snapshot.object?.enabled && r.snapshot.object.size===2 && r.snapshot.object.baseHz===110,'missing useful object snapshot');
+    const a=await render({a:110},3),b=await render({a:110,metal:1,size:.25},3);
+    let error=0;for(let i=0;i<a.left.length;i++)error+=(a.left[i]-b.left[i])**2;
+    assert(error<1e-9,'metal altered sine spectrum');
+    const walk=await render({walk:1},6),object=await render({walk:1,metal:1,strike:0},6);
+    let crossed=0;for(let i=0;i<walk.left.length;i++)crossed+=(walk.left[i]-object.left[i])**2;
+    assert(crossed<1e-9 && !object.events.some(e=>e.type==='unit'),'crossing excited object');
+    return {reapplies:2,sineError:error,crossingError:crossed,object:r.snapshot.object};
+  });
+  await test('strength, source decay and reach are independent audible controls',async()=>{
+    const strong=await render({metal:1,strike:1,place:0,echo:0,decay:.8},3),soft=await render({metal:1,strike:.2,place:0,echo:0,decay:.8},3);
+    const short=await render({metal:1,strike:1,place:0,echo:0,decay:.1},3);
+    assert(strong.energy>soft.energy*4,'strength did not affect level');
+    assert(energy(strong.left,.2,.6)>energy(short.left,.2,.6)+1e-4,'decay did not affect source');
+    const narrow=await render({metal:1,strike:1,place:.1,reach:.5,echo:0}),wide=await render({metal:1,strike:1,place:.1,reach:20,echo:0});
+    assert(wide.energy>narrow.energy*20,'reach did not affect attenuation');
+    return {strength:[strong.energy,soft.energy],decay:[energy(strong.left,.2,.6),energy(short.left,.2,.6)],reach:[narrow.energy,wide.energy]};
+  });
+  await test('maximum source/echo and deep linger feedback stay bounded and decay',async()=>{
+    const r=await render({a:110,b:110.4,gain:0,metal:1,strike:1,size:.25,decay:12,echo:1,reach:20,place:0,linger:20,walk:2},40,[{time:30,values:{walk:0}}]);
+    assert(r.peak<1 && r.energy>1e-3,'unbounded output '+r.peak);
+    const windows=[energy(r.left,31,33),energy(r.left,38,40)];
+    assert(windows[1]<windows[0]*1.3+1e-10,'late feedback grew '+windows);return {peak:r.peak,windows};
+  });
+  await test('dispose silences scheduled transient graphs as well as persistent voices',async()=>{
+    const ctx=new OfflineAudioContext(2,rate*3,rate),e=createEngine(ctx,0);
+    e.commit({...zero,metal:1,strike:1,people:4,a:110},0);for(let t=0;t<2;t+=.025)e.tick(t);
+    e.dispose();e.dispose();e.commit({strike:1},0);
+    const buffer=await ctx.startRendering(),en=energy(buffer.getChannelData(0))+energy(buffer.getChannelData(1));
+    assert(en<1e-12,'dispose left audio connected '+en);return en;
+  });
+  await test('period edits preserve phase, disabled objects stay silent, fractional metal scales',async()=>{
+    const r=await render({metal:1,strike:.6,every:1,echo:0,decay:.12},3,[{time:.25,commit:true,values:{every:.5}}]);
+    const onsets=r.events.filter(e=>e.type==='unit').map(e=>e.time);
+    assert(onsets.length===6 && Math.abs(onsets[1]-.625)<1e-8,'period edit reset phase '+onsets);
+    const disabled=await render({metal:0,strike:1,every:.5},2),fraction=await render({metal:.25,strike:1,place:0,echo:0},3),full=await render({metal:1,strike:1,place:0,echo:0},3);
+    assert(disabled.energy===0 && !disabled.events.some(e=>e.type==='unit'),'disabled object struck');
+    assert(fraction.energy>0 && fraction.energy<full.energy*.5,'fractional metal ignored');
+    const ctx=new OfflineAudioContext(2,rate,rate),e=createEngine(ctx,0),v=e.values;
+    assert(v.size===1 && v.place===.12 && v.strike===0 && v.every===0 && v.decay===2 && v.echo===.3 && v.reach===6,'bad defaults');
+    e.dispose();return {onsets,fractionEnergy:fraction.energy,fullEnergy:full.energy};
+  });
+  results.pass=true;
+} catch(e){results.pass=false;results.error=e.stack;}
+window.encounterAudioResults=results;document.querySelector('#result').textContent=JSON.stringify(results);
+</script>

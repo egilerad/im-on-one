@@ -1,9 +1,9 @@
 // bounded mathematical score language for "i'm on one". it never executes javascript.
 const NAMES = ['t', 'depth', 'sine', 'pi'];
 const FUNCTIONS = ['sin', 'cos', 'abs'];
-const ORDER = ['sine', 'pair', 'gain', 'walk', 'side', 'metal', 'people', 'linger'];
+const ORDER = ['sine', 'pair', 'gain', 'walk', 'side', 'metal', 'people', 'linger', 'size', 'place', 'strike', 'every', 'decay', 'echo', 'reach'];
 // the zero point: a word that is not written adds nothing (no tone, standing still, no metal, nobody, dry)
-const DEFAULTS = {gain: '.12', walk: '0', side: '0', metal: '0', people: '0', linger: '.2'};
+const DEFAULTS = {gain: '.12', walk: '0', side: '0', metal: '0', people: '0', linger: '.2', size: '1', place: '.12', strike: '0', every: '0', decay: '2', echo: '.3', reach: '6'};
 const RANGES = {
   sine: [30, 2000, 'sine 30–2000 hz'],
   pair: [30, 2000, 'pair 30–2000 hz'],
@@ -12,7 +12,10 @@ const RANGES = {
   side: [-1, 1, 'side -1 (outer wall) to 1 (inner wall)'],
   metal: [0, 1, 'metal 0–1'],
   people: [0, 8, 'people 0–8'],
-  linger: [.2, 20, 'linger .2–20 seconds']
+  linger: [.2, 20, 'linger .2–20 seconds'],
+  size: [.25,4,'size .25–4'], place: [0,1,'place 0–1 along the path'],
+  strike: [0,1,'strike 0–1'], every: [0,60,'every 0 (one shot) or .25–60 seconds'],
+  decay: [.1,12,'decay .1–12 seconds'], echo: [0,1,'echo 0–1'], reach: [.5,20,'reach .5–20 metres']
 };
 const fail = (line, message) => { throw Error(`line ${line}: ${message}`); };
 
@@ -81,7 +84,7 @@ export function compile(source) {
     const line = index + 1, text = raw.replace(/#.*$/, '').trim();
     if (!text) continue;
     const match = /^([a-z]+)\s+(.+)$/.exec(text);
-    if (!match || !ORDER.includes(match[1])) fail(line, 'use sine, pair, walk, side, metal, people, linger, gain');
+    if (!match || !ORDER.includes(match[1])) fail(line, 'unknown word; use sine, pair, walk, side, metal, size, place, strike, every, decay, echo, reach, people, linger, gain');
     const [, key, value] = match;
     if (program.rules[key] || (key === 'pair' && program.off)) fail(line, `duplicate ${key}`);
     if (key === 'pair' && value === 'off') { program.off = true; program.lines.pair = line; continue; }
@@ -106,7 +109,7 @@ export function evaluateAt(program, env = {}, previous = null) {
       let value = evaluate(rule, {t: env.t ?? 0, depth: env.depth ?? 0, sine: key === 'sine' ? undefined : values.a, self: key === 'sine'});
       if (key === 'people') value = Math.round(value);
       const [low, high, message] = RANGES[key];
-      if (value < low || value > high) throw Error(`line ${rule.line}: ${message}`);
+      if (value < low || value > high || (key === 'every' && value > 0 && value < .25)) throw Error(`line ${rule.line}: ${message}`);
       values[out] = value;
     } catch (e) {
       const line = rule.line || program.lines[key] || 1;
