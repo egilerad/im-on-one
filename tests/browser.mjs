@@ -25,8 +25,8 @@ try {
   // name, type, and no explanatory text
   assert.equal(await page.title(), "i'm on one");
   assert.equal(await page.locator('input[type=range]').count(), 0);
-  assert.deepEqual(await visibleText(page), ['play']);
-  for (const selector of ['body', '#code', '#play']) assert.match(await page.locator(selector).evaluate(e => getComputedStyle(e).fontFamily), /^arial/i);
+  assert.deepEqual(await visibleText(page), []);
+  for (const selector of ['body', '#code']) assert.match(await page.locator(selector).evaluate(e => getComputedStyle(e).fontFamily), /^arial/i);
 
   // the score floats, semi-transparent, over a full-screen drawing
   const layout = await page.evaluate(() => {
@@ -44,9 +44,9 @@ try {
   assert.equal(await page.locator('#code').inputValue(), '');
   assert.equal(await page.evaluate(() => document.activeElement.id), 'code');
   const empty = await darkPixels(page);
-  await page.locator('#play').click();
+  await page.locator('#code').press('Control+Enter');
   await page.waitForFunction(() => window.imOnOne.running && window.imOnOne.time > 1.5);
-  assert.deepEqual(await visibleText(page), ['play', 'stop']);
+  assert.deepEqual(await visibleText(page), []);
   const zero = await page.evaluate(() => { const s = window.imOnOne.state; return {gain: s.gain, pairGain: s.pairGain, walls: s.walls, s: s.s, events: s.events.length, people: s.people.length}; });
   assert.deepEqual(zero, {gain: 0, pairGain: 0, walls: 0, s: 0, events: 0, people: 0});
   assert.ok(await darkPixels(page) <= empty * 1.5 + 50);
@@ -98,13 +98,13 @@ try {
   await page.screenshot({path: 'tests/desktop.png'});
   await page.keyboard.press('Escape');
   await page.waitForFunction(() => !window.imOnOne.running);
-  assert.deepEqual(await visibleText(page), ['play']);
+  assert.deepEqual(await visibleText(page), []);
   await page.waitForTimeout(300);
   const f1 = await canvasHash(page); await page.waitForTimeout(400);
   assert.equal(await canvasHash(page), f1);
 
   // play after stop restarts with a new graph from the entrance
-  await page.locator('#play').click();
+  await page.locator('#code').press('Control+Enter');
   await page.waitForFunction(g => window.imOnOne.running && window.imOnOne.generation === g + 1, before.generation);
   assert.ok(await page.evaluate(() => window.imOnOne.time) < 2);
 
@@ -116,27 +116,15 @@ try {
     document.dispatchEvent(new DragEvent('drop', {dataTransfer: data, bubbles: true, cancelable: true}));
   });
   await page.waitForFunction(() => !document.querySelector('#image').hidden && document.querySelector('#image').src.startsWith('blob:'));
-  assert.deepEqual(await visibleText(page), ['play', 'stop']);
+  assert.deepEqual(await visibleText(page), []);
 
   // a reload returns to the zero point
   await page.reload();
   await page.waitForFunction(() => window.imOnOne);
   assert.equal(await page.locator('#code').inputValue(), '');
+  // no transport UI: keyboard-only by request
+  assert.equal(await page.locator('button').count(),0);
   await page.close();
-
-  // narrow screens
-  const phone = await browser.newPage({viewport: {width: 390, height: 844}, isMobile: true, hasTouch: true});
-  phone.on('pageerror', e => errors.push(e.message));
-  await phone.goto(base);
-  await phone.waitForFunction(() => window.imOnOne);
-  const fit = await phone.evaluate(() => { const c = document.querySelector('#code').getBoundingClientRect(), p = document.querySelector('#play').getBoundingClientRect(); return {overflow: document.documentElement.scrollWidth > innerWidth, code: c.left >= 0 && c.right <= innerWidth && c.height > 120, play: p.bottom <= innerHeight && p.width >= 40}; });
-  assert.deepEqual(fit, {overflow: false, code: true, play: true});
-  await phone.locator('#play').tap();
-  await phone.waitForFunction(() => window.imOnOne.running && window.imOnOne.time > 1);
-  await phone.locator('#code').fill('sine 110\npair sine + 1/4\nwalk 1\nmetal .5');
-  await phone.locator('#play').tap();
-  await phone.waitForFunction(() => window.imOnOne.state.walls > .9 && window.imOnOne.state.s > 1, null, {timeout: 8000});
-  await phone.screenshot({path: 'tests/phone.png'});
   assert.deepEqual(errors, []);
   console.log('pass: zero point (empty, silent, body only), one line adds only itself, lowercase arial overlay, live update continuity, invalid-line hold, monochrome motion, stop freeze, restart, image drop, phone layout');
 } finally { await browser.close(); }

@@ -63,7 +63,6 @@ async function play() {
   engine.update(last, origin);
   running = true;
   clearInterval(timer); timer = setInterval(tick, 25);
-  $('stop').hidden = false;
   const video=$('video'); if(!video.hidden){video.currentTime=0;video.play().catch(()=>{$('announce').textContent='video could not play; try another mp4 or webm';});}
 }
 async function stop() {
@@ -71,12 +70,9 @@ async function stop() {
   if (!running) return;
   frozen = engine.snapshot(ctx.currentTime);
   running = false; clearInterval(timer);
-  $('stop').hidden = true;
   await ctx.suspend();
 }
 
-$('play').addEventListener('click', play);
-$('stop').addEventListener('click', stop);
 code.addEventListener('input', () => { draft(); mark([]); });
 code.addEventListener('scroll', () => { mirror.scrollTop = code.scrollTop; });
 document.addEventListener('keydown', e => {
@@ -98,7 +94,7 @@ document.addEventListener('drop', e => {
     video.muted=true;video.src=imageURL;video.hidden=false;
     video.onerror=()=>{$('announce').textContent='this video cannot be decoded; try an h.264 mp4 or webm';};
     video.load();
-    if(running)video.play().catch(()=>{$('announce').textContent='press play to enable background video';});
+    if(running)video.play().catch(()=>{$('announce').textContent='apply with command or control and enter to enable background video';});
   }else{$('image').src=imageURL;$('image').hidden=false;}
 });
 mark([]);

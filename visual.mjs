@@ -129,13 +129,25 @@ export function createVisual(canvas, getData) {
     const strikes = new Map();
     for (const e of s.events) if (e.type === 'unit') strikes.set(e.index, s.time - e.time);
     UNITS.forEach((th, i) => {
-      const r = wallRadius(th) - .17, [x, y] = P(r, th), [tx, ty] = tangent(r, th), nx = -ty, ny = tx, L = .3 * k, D = .09 * k;
-      g.beginPath(); g.moveTo(x - tx * L - nx * D, y - ty * L - ny * D); g.lineTo(x + tx * L - nx * D, y + ty * L - ny * D); g.lineTo(x + tx * L + nx * D, y + ty * L + ny * D); g.lineTo(x - tx * L + nx * D, y - ty * L + ny * D); g.closePath();
-      g.fillStyle = `rgba(0,0,0,${(.1 + .28 * (s.metal ?? .5)).toFixed(3)})`; g.fill();
-      const age = strikes.get(i), glow = age !== undefined && age >= 0 && age < 2.5 ? 1 - age / 2.5 : 0;
-      g.strokeStyle = `rgba(0,0,0,${(.6 + .4 * glow).toFixed(3)})`; g.lineWidth = .9 + 2.2 * glow; g.stroke();
-      g.beginPath(); for (const f of [-.5, 0, .5]) { g.moveTo(x + tx * L * f - nx * D * .7, y + ty * L * f - ny * D * .7); g.lineTo(x + tx * L * f + nx * D * .7, y + ty * L * f + ny * D * .7); }
-      g.strokeStyle = 'rgba(0,0,0,.35)'; g.lineWidth = .5; g.stroke();
+      const age=strikes.get(i), glow=age!==undefined&&age>=0&&age<2.5?1-age/2.5:0;
+      // material seams grow directly out of the wall, not free-standing boxes.
+      const points=[];
+      for(let n=0;n<=24;n++){
+        const angle=th+(n/24-.5)*.15;
+        const edge=edges(angle,s).floor;
+        points.push(P(edge,angle));
+      }
+      g.save();g.lineCap='round';g.lineJoin='round';
+      g.shadowColor=`rgba(0,0,0,${.25+.25*glow})`;g.shadowBlur=5+7*glow;
+      line(g,points);g.strokeStyle=`rgba(0,0,0,${.14+.15*s.metal+.2*glow})`;g.lineWidth=(.07+.06*glow)*k+2;g.stroke();
+      g.shadowBlur=0;
+      line(g,points);g.strokeStyle=`rgba(0,0,0,${.35+.3*glow})`;g.lineWidth=.9+glow;g.stroke();
+      // short soft fibres connect the material edge into the leaning sheet.
+      for(let j=-2;j<=2;j++){
+        const angle=th+j*.025,e=edges(angle,s),from=P(e.floor,angle),to=P(e.floor+(e.top-e.floor)*.7,angle);
+        g.beginPath();g.moveTo(...from);g.lineTo(...to);g.strokeStyle='rgba(0,0,0,.2)';g.lineWidth=.7;g.stroke();
+      }
+      g.restore();
     });
     g.globalAlpha = 1;
   }
