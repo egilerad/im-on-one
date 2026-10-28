@@ -24,7 +24,15 @@ export function createEngine(ctx, start = ctx.currentTime) {
   const dry = gain(), shelf = filter('lowshelf', 180), dark = filter('lowpass', 9000), direct = gain(), out = gain(), compressor = add(ctx.createDynamicsCompressor()), master = gain(), analyser = add(ctx.createAnalyser());
   compressor.threshold.value = -18; compressor.knee.value = 12; compressor.ratio.value = 6; compressor.attack.value = .004; compressor.release.value = .25;
   master.gain.value = .55; analyser.fftSize = 2048; shelf.gain.value = 0; direct.gain.value = 1;
-  dry.connect(shelf); shelf.connect(dark); dark.connect(direct); direct.connect(out); out.connect(compressor); compressor.connect(master); master.connect(analyser); analyser.connect(ctx.destination);
+  dry.connect(shelf); shelf.connect(dark); dark.connect(direct); direct.connect(out); compressor.connect(master); master.connect(analyser); analyser.connect(ctx.destination);
+
+  // a distributed metallic skin on the entire world, not a local source.
+  const auraDry=gain(); auraDry.gain.value=1; out.connect(auraDry); auraDry.connect(compressor);
+  const aura=STRIKE.ratios.map((ratio,i)=>{
+    const band=filter('bandpass',220*ratio,3), d=delay(.2,[.019,.031,.047,.071][i]), wet=gain(), p=pan(i%2?.65:-.65);
+    wet.gain.value=0; out.connect(band); band.connect(d); d.connect(wet); wet.connect(p); p.connect(compressor);
+    return {band,d,wet,ratio,i};
+  });
 
   // first reflections from each wall, then a flutter bouncing between them
   const walls = ['outer', 'inner'].map((name, i) => {
@@ -127,10 +135,10 @@ export function createEngine(ctx, start = ctx.currentTime) {
   }
   function objectStrike(time) {
     if (!(values.metal > 0 && values.strike > 0)) return;
-    const source = bodyAt(values.place * PATH_LENGTH), body = bodyAt(walker.s, walker.side);
-    const image = spatial(body, source);
-    strike(time, .22 * values.metal * values.strike * image.attenuation * (1-.45*walker.damp), image.pan, walker.damp, image.cutoff);
-    remember({type: 'unit', index: 0, time: time - start, ...source, ...image, metal: values.metal, strength: values.strike, baseHz: 220 / values.size});
+    const source = bodyAt(walker.s, walker.side);
+    // the excitation belongs to the whole field; place no longer locates a box.
+    strike(time, .16 * values.metal * values.strike * (1-.45*walker.damp), 0, walker.damp, 9000);
+    remember({type: 'aura', index: 0, time: time - start, ...source, metal: values.metal, strength: values.strike, baseHz: 220 / values.size});
   }
   // pan of a point relative to where the body faces (−1 left, 1 right)
   const facing = body => { const dir = walker.speed < -.01 ? -1 : 1; return [body.heading[0] * dir, body.heading[1] * dir]; };
@@ -210,6 +218,13 @@ export function createEngine(ctx, start = ctx.currentTime) {
     const pressure=.5-.5*Math.cos(2*Math.PI*w.travelled/.7);
     param(movementFilter.frequency,9000*(1-motion)+motion*(180+420*(1-near)),now,.22);
     param(movementGain.gain,1-motion*(.55+.3*pressure),now,.18);
+    param(auraDry.gain,1-.2*values.metal,now,.4);
+    for(const line of aura){
+      param(line.band.frequency,Math.min(ctx.sampleRate*.4,220*line.ratio/values.size),now,.4);
+      param(line.band.Q,.8+Math.min(8,values.decay)*.5,now,.4);
+      param(line.wet.gain,values.metal*(.4/(1+line.i*.45))*(1-.5*damp),now,.45);
+      param(line.d.delayTime,[.019,.031,.047,.071][line.i]*(1+values.echo),now,.4);
+    }
     param(shelf.gain, 6 * near, now, .15);
     param(dark.frequency, 9000 * (1 - damp) ** 2 + 380, now, .2);
     param(direct.gain, 1 - .45 * damp, now, .2);
@@ -258,7 +273,7 @@ export function createEngine(ctx, start = ctx.currentTime) {
     const local = Math.max(0, time - start), p = pair.advance(local), w = walker.snapshot();
     const objectBody = bodyAt(values.place * PATH_LENGTH);
     const object = {...objectBody, ...spatial(bodyAt(w.s, w.side), objectBody), enabled: values.metal > 0, metal: values.metal, index: 0, size: values.size, place: values.place, baseHz: 220 / values.size, strike: values.strike, every: values.every, decay: values.decay, echo: values.echo, reach: values.reach, nextOnset};
-    return {...p, ...w, object, time: local, body: bodyAt(w.s, w.side), people: Array.from({length: values.people}, (_, i) => personAt(i, local)), events: recent.filter(e => e.time <= local + .02), metal: values.metal, linger: values.linger, peopleCount: values.people};
+    return {...p, ...w, object, aura: {amount:values.metal,size:values.size,decay:values.decay,echo:values.echo}, time: local, body: bodyAt(w.s, w.side), people: Array.from({length: values.people}, (_, i) => personAt(i, local)), events: recent.filter(e => e.time <= local + .02), metal: values.metal, linger: values.linger, peopleCount: values.people};
   }
 
   function dispose() {

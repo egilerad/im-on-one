@@ -2,7 +2,7 @@
 
 **[play it](https://egilerad.github.io/im-on-one/)** · [manual](MANUAL.md)
 
-a livecoding walk through a torqued steel spiral. it starts from zero: an empty page, silence, your body as a small jagged spiral at the entrance. each line adds one thing. two sine tones raise the walls; the body walks in; the sound becomes more dampened and lingering as it goes. a metal object can be placed, struck and repeated independently of walking. visitors touch the walls as well as stepping, and their sound depends on your relative position. delete the lines and you are back at zero.
+a livecoding walk through a torqued steel spiral. it starts from zero: an empty page, silence, your body as a small jagged spiral at the entrance. each line adds one thing. two sine tones raise the walls; the body walks in; the sound becomes more dampened and lingering as it goes. metal is a resonant aura across the whole sound world, not a placed object; it can be excited or pulsed independently of walking. visitors touch the walls as well as stepping, and their sound depends on your relative position. delete the lines and you are back at zero.
 
 ```text
 sine 110

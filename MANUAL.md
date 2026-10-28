@@ -18,22 +18,22 @@ the empty editor is silence. every line is optional. type, then ⌘/ctrl + enter
 
 ## object, action, rhythm and space
 
-metal now enables one silent object. it no longer adds overtones to sustained sines or automatically strikes repeated units while walking.
+metal is now a world-wide resonant aura, not a placed box. it colors all existing sound: tones, movement, visitor contacts and their echoes. on its own it is silent. the drawing gains offset, broken metallic skins around the whole spiral. strike excites the whole field, not a localized object.
 
 | word | independent function | range; absent value |
 |---|---|---|
-| metal | object enabled / material amount | 0–1; 0 |
-| place | position along path: entrance 0, centre 1 | 0–1; .12 |
-| size | relative resonant size: larger = lower pitch | .25–4; 1 |
+| metal | global metallic aura amount | 0–1; 0 |
+| place | legacy compatibility only; no effect on the global aura | 0–1; .12 |
+| size | whole-field resonance scale: larger = lower | .25–4; 1 |
 | strike | excitation strength | 0–1; 0 |
 | every | repetition interval | .25–60 s; 0 = one shot |
 | decay | source ring, distinct from room lingering | .1–12 s; 2 |
 | echo | reflected contribution of encounters | 0–1; .3 |
-| reach | listening-distance scale | .5–20 m; 6 |
+| reach | visitor-contact listening-distance scale | .5–20 m; 6 |
 
 with metal enabled, `strike .4` without every sounds once **each explicit apply**. continuous expression updates do not retrigger it. unrelated applies also strike if the one-shot line remains. delete strike when an apply should not sound a hit. `every 4` repeats every four seconds; removing strike stops new attacks but keeps old tails. removing every while strike remains returns to one-shot mode: that apply may strike once.
 
-size alters resonances; place alters source location; strike alters excitation; decay alters the source envelope; echo alters reflected contribution. spatial attenuation, stereo and obstruction depend on the listener relative to the source. visitors interact at their own wall positions, heard from your moving position, not as a global murmur. this is not acoustic ray tracing.
+size alters world resonances; strike excites the field; decay changes resonant emphasis and strike envelope; echo alters reflected contribution. place no longer locates anything. spatial attenuation, stereo and obstruction depend on the listener relative to the source. visitors interact at their own wall positions, heard from your moving position, not as a global murmur. this is not acoustic ray tracing.
 
 ## livecoding and calculation
 

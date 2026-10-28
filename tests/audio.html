@@ -64,7 +64,7 @@ try {
   // placement no longer automatically excites metal on crossings
   const metal = await render({...base, gain: 0, walk: 1, metal: 1}, 8);
   results.metal = energy(metal.left);
-  if (Math.abs(energy(metal.left)-energy(walking.left)) > .001) throw Error('placement unexpectedly rang');
+  if (Math.abs(energy(metal.left)-energy(walking.left)) < .001) throw Error('aura did not color walking');
 
   // other people are audible even when the performer stands still
   const people = await render({...base, gain: 0, people: 4}, 10);

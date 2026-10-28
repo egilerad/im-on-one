@@ -75,7 +75,7 @@ export function createVisual(canvas, getData) {
       for (const grit of print.grit) { const size = grit.size * k * .5 + .7; tg.fillRect(grit.x * k, grit.y * k, size, size); }
       tg.restore();
     }
-    if ((e.type === 'unit' && e.metal > 0) || e.type === 'contact') {
+    if (e.type === 'contact') {
       const [x, y] = Q(e.x, e.y);
       tg.strokeStyle = `rgba(0,0,0,${(.08 + .2 * (e.metal ?? .5)).toFixed(3)})`; tg.lineWidth = .7;
       for (let i = 0; i < 7; i++) { const a = TAU * hash(e.time + i), l = (.2 + .5 * hash(e.time * 2 + i)) * k; tg.beginPath(); tg.moveTo(x, y); tg.lineTo(x + Math.cos(a) * l, y + Math.sin(a) * l); tg.stroke(); }
@@ -133,24 +133,23 @@ export function createVisual(canvas, getData) {
     }
   }
 
-  function drawUnits(s) {
-    const shown = Math.min(1, (s.metal ?? 0) * 4);
-    if (shown <= 0) return;
-    g.globalAlpha = shown;
-    const strikes = new Map();
-    for (const e of s.events) if (e.type === 'unit') strikes.set(e.index, s.time - e.time);
-    const object = s.object || {place:.12,size:1};
-    const objectBody = bodyAt((object.place ?? .12) * PATH_LENGTH);
-    [objectBody.theta].forEach((th, i) => {
-      const r = objectBody.r, [x, y] = P(r, th), [tx, ty] = tangent(r, th), nx = -ty, ny = tx, L = .3 * Math.sqrt(object.size ?? 1) * k, D = .09 * Math.sqrt(object.size ?? 1) * k;
-      g.beginPath(); g.moveTo(x - tx * L - nx * D, y - ty * L - ny * D); g.lineTo(x + tx * L - nx * D, y + ty * L - ny * D); g.lineTo(x + tx * L + nx * D, y + ty * L + ny * D); g.lineTo(x - tx * L + nx * D, y - ty * L + ny * D); g.closePath();
-      g.fillStyle = `rgba(0,0,0,${(.1 + .28 * (s.metal ?? .5)).toFixed(3)})`; g.fill();
-      const age = strikes.get(i), glow = age !== undefined && age >= 0 && age < 2.5 ? 1 - age / 2.5 : 0;
-      g.strokeStyle = `rgba(0,0,0,${(.6 + .4 * glow).toFixed(3)})`; g.lineWidth = .9 + 2.2 * glow; g.stroke();
-      g.beginPath(); for (const f of [-.5, 0, .5]) { g.moveTo(x + tx * L * f - nx * D * .7, y + ty * L * f - ny * D * .7); g.lineTo(x + tx * L * f + nx * D * .7, y + ty * L * f + ny * D * .7); }
-      g.strokeStyle = 'rgba(0,0,0,.35)'; g.lineWidth = .5; g.stroke();
-    });
-    g.globalAlpha = 1;
+  function drawAura(s) {
+    const amount=s.aura?.amount ?? s.metal ?? 0;
+    if(amount<=.001)return;
+    const size=s.aura?.size ?? s.object?.size ?? 1;
+    const pulse=s.events.filter(e=>e.type==='aura').reduce((v,e)=>v+Math.exp(-Math.max(0,s.time-e.time)/2)*(e.strength??.3),0);
+    // offset broken skins across the whole steel spiral, no isolated boxes.
+    for(let j=0;j<7;j++){
+      g.beginPath();let pen=false;
+      for(let i=0;i<=N;i++){
+        const th=WALL_END*i/N;
+        const spread=(j-3)*(.055+.025*size)*(1+.3*pulse);
+        const r=wallRadius(th)+spread+.025*Math.sin(th*7/size-s.slow*TAU+j);
+        const pt=P(r,th), visible=hash(Math.floor(i/5)+j*87)>.18;
+        if(visible&&pen)g.lineTo(...pt);else if(visible)g.moveTo(...pt);pen=visible;
+      }
+      g.strokeStyle=`rgba(0,0,0,${Math.min(.35,amount*(.07+.08*pulse))})`;g.lineWidth=.6+j*.12;g.stroke();
+    }
   }
 
   function drawRings(s) {
@@ -217,7 +216,7 @@ export function createVisual(canvas, getData) {
     g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, H);
     g.drawImage(trail, 0, 0, W, H);
     drawWall(s);
-    drawUnits(s);
+    drawAura(s);
     drawRings(s);
     drawFigures(s);
     g.globalAlpha = .03 + .08 * s.damp; g.fillStyle = grain; g.fillRect(0, 0, W, H); g.globalAlpha = 1;
