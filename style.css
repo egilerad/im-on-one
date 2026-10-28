@@ -5,9 +5,9 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #fff; color:
 #image[hidden] { display: none; }
 
 .score { position: absolute; left: 3.5vw; top: 6vh; bottom: 10vh; width: min(540px, 40vw); }
-.editor { position: relative; height: 100%; background: rgba(255, 255, 255, .44); -webkit-backdrop-filter: blur(1px); backdrop-filter: blur(1px); }
+.editor { position: relative; height: 100%; background: transparent; -webkit-backdrop-filter: none; backdrop-filter: none; }
 #code, .mirror { position: absolute; inset: 0; margin: 0; padding: 22px 24px; border: 0; font: 21px/1.8 Arial, Helvetica, sans-serif; letter-spacing: 0; white-space: pre-wrap; overflow-wrap: anywhere; text-transform: none; }
-#code { width: 100%; height: 100%; resize: none; outline: none; background: transparent; color: #000; caret-color: #000; text-shadow: 0 0 5px #fff, 0 0 2px #fff; overflow: auto; }
+#code { width: 100%; height: 100%; resize: none; outline: none; background: transparent; color: #000; caret-color: #000; text-shadow: -1px 0 2px rgba(255,255,255,.8), 1px 1px 3px rgba(0,0,0,.3), -2px -1px 6px rgba(0,0,0,.16); overflow: auto; }
 #code.draft { color: rgba(0, 0, 0, .52); }
 .mirror { color: transparent; pointer-events: none; overflow: hidden; }
 .mirror .error { text-decoration: underline; text-decoration-color: #000; text-decoration-thickness: 1px; text-underline-offset: 6px; }
@@ -21,7 +21,7 @@ button:focus-visible { outline: 1px solid #000; outline-offset: 3px; }
 
 @media (max-width: 760px) {
   .score { left: 0; right: 0; top: auto; bottom: 0; width: auto; height: 44dvh; }
-  .editor { background: rgba(255, 255, 255, .5); }
+  .editor { background: transparent; }
   #code, .mirror { font-size: 18px; line-height: 1.7; padding: 16px 18px; }
   .transport { top: max(10px, env(safe-area-inset-top)); bottom: auto; right: 8px; }
 }

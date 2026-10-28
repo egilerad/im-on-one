@@ -46,9 +46,12 @@ export function createEngine(ctx, start = ctx.currentTime) {
     return {t, lp, fb};
   });
 
+  // walking changes transmission through the existing tones, not just a layer of attacks.
+  const movementFilter=filter('lowpass',9000), movementGain=gain();
+  movementFilter.connect(movementGain); movementGain.connect(dry); movementGain.gain.value=1;
   // The sine pair is independent of objects and their actions.
   const voices = [0, 1].map(i => {
-    const level = gain(); level.gain.value = 0; level.connect(dry);
+    const level = gain(); level.gain.value = 0; level.connect(movementFilter);
     const oscillators = [1].map(ratio => {
       const o = add(ctx.createOscillator()); o.type = 'sine'; o.frequency.value = (i ? 110.25 : 110) * ratio;
       const g = gain(); g.gain.value = 1; o.connect(g); g.connect(level); o.start(start);
@@ -66,11 +69,13 @@ export function createEngine(ctx, start = ctx.currentTime) {
 
   function step(time, level, panValue, cutoff) {
     const src = ctx.createBufferSource(), lp = ctx.createBiquadFilter(), g = ctx.createGain(), p = ctx.createStereoPanner();
-    src.buffer = noise; lp.type = 'lowpass'; lp.frequency.value = cutoff; lp.Q.value = .7; p.pan.value = clamp(panValue, -1, 1);
-    g.gain.setValueAtTime(0, time); g.gain.linearRampToValueAtTime(level, time + .003); g.gain.exponentialRampToValueAtTime(level * .05 + 1e-5, time + .045);
-    g.gain.linearRampToValueAtTime(level * .5, time + .055); g.gain.exponentialRampToValueAtTime(1e-5, time + .17);
+    // soft sole/friction swell: no heel/toe clicks or abrupt noise cut-off.
+    src.buffer = noise; lp.type = 'lowpass'; lp.frequency.value = Math.min(280,cutoff); lp.Q.value = -6; p.pan.value = clamp(panValue, -1, 1);
+    const duration=.72, envelope=new Float32Array(128);
+    for(let i=0;i<envelope.length;i++)envelope[i]=level*.18*Math.sin(Math.PI*i/(envelope.length-1))**2;
+    g.gain.setValueCurveAtTime(envelope,time,duration);
     src.connect(lp); lp.connect(g); g.connect(p); p.connect(dry);
-    src.start(time, (time * 7.31) % .7, .2); src.stop(time + .2);
+    src.start(time, (time * 7.31) % .2); src.stop(time + duration + .02);
     transient([src], [src, lp, g, p]);
   }
   const transients = new Set();
@@ -200,6 +205,11 @@ export function createEngine(ctx, start = ctx.currentTime) {
     param(loopFb.gain, .5 * (1 - .4 * damp), now, .2);
     param(loopOut.gain, .3 * wallsNow, now, .2);
     param(loopLp.frequency, 4000 * (1 - damp) + 300, now, .2);
+    // velocity and travelled distance act on a shared resonant field. stopping releases it smoothly.
+    const motion=Math.min(1,Math.abs(w.speed)/.18);
+    const pressure=.5-.5*Math.cos(2*Math.PI*w.travelled/.7);
+    param(movementFilter.frequency,9000*(1-motion)+motion*(180+420*(1-near)),now,.22);
+    param(movementGain.gain,1-motion*(.55+.3*pressure),now,.18);
     param(shelf.gain, 6 * near, now, .15);
     param(dark.frequency, 9000 * (1 - damp) ** 2 + 380, now, .2);
     param(direct.gain, 1 - .45 * damp, now, .2);

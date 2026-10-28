@@ -36,7 +36,8 @@ try {
   });
   assert.ok(['absolute', 'fixed'].includes(layout.position));
   assert.ok(layout.overlaps);
-  assert.ok(layout.alpha > 0 && layout.alpha < 1);
+  assert.equal(layout.alpha, 0);
+  assert.equal(await page.locator(".editor").evaluate(e=>getComputedStyle(e).backdropFilter), "none");
   assert.ok(layout.canvasWidth >= 1400 && layout.canvasHeight >= 880);
 
   // the zero point: no code, nothing drawn but the body, silence even after play

@@ -86,7 +86,8 @@ try {
   const deep = await render({...base, metal: .8}, 40, [{time: 4, values: {walk: 2}}, {time: 30, values: {walk: 0}}]);
   const entrance = await render({...base, metal: .8}, 40);
   results.bright = [bright(entrance.left, 36, 39), bright(deep.left, 36, 39)];
-  results.deepStable = [energy(deep.left, 31, 33), energy(deep.left, 37, 39)];
+  // after movement stops the transmission reopens; compare only after that release settles
+  results.deepStable = [energy(deep.left, 35, 37), energy(deep.left, 38, 40)];
   if (results.deepStable[1] > results.deepStable[0] * 1.2) throw Error('feedback grew deep inside');
   if (!(energy(deep.left,36,39) < energy(entrance.left,36,39))) throw Error('sound did not dampen with depth');
   if (!(deep.snapshot.damp > .5)) throw Error('damping state did not accumulate');
