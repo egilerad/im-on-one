@@ -1,5 +1,5 @@
 import {SPIRAL, END, wallRadius, edges, unitPositions, bodyAt} from './spiral.mjs';
-import {jaggedSpiral, jaggedPrint} from './marks.mjs';
+import {jaggedSpiral, jaggedPrint, footprintOpacity} from './marks.mjs';
 
 // overhead plan, drawn roughly: steel edges, judd units, footprints, reflections and the body's rubbing at the walls.
 // every mark comes from the running sound state; ring speed is slowed so reflections can be seen.
@@ -64,17 +64,6 @@ export function createVisual(canvas, getData) {
     const key = `${e.type}:${e.time.toFixed(4)}:${e.index ?? ''}`;
     if (seen.has(key)) return;
     seen.set(key, e.time);
-    if (e.type === 'step' || e.type === 'person') {
-      // an irregular scuff with grit, never a clean oval
-      const [hx, hy] = e.heading || [1, 0], side = (e.foot ? 1 : -1) * .1, [x, y] = Q(e.x - hy * side, e.y + hx * side);
-      const seed = e.time * 31.7 + (e.index ?? 0) * 7, print = jaggedPrint(seed, {length: .27, width: .13});
-      const alpha = (e.type === 'step' ? .62 : e.occluded ? .1 : .24) * (.7 + .5 * hash(seed * 2));
-      tg.save(); tg.translate(x, y); tg.rotate(-Math.atan2(hy, hx) + (hash(seed) - .5) * .6);
-      tg.fillStyle = `rgba(0,0,0,${alpha.toFixed(3)})`;
-      tg.beginPath(); print.outline.forEach(([px, py], i) => i ? tg.lineTo(px * k, py * k) : tg.moveTo(px * k, py * k)); tg.closePath(); tg.fill();
-      for (const grit of print.grit) { const size = grit.size * k * .5 + .7; tg.fillRect(grit.x * k, grit.y * k, size, size); }
-      tg.restore();
-    }
     if (e.type === 'unit' && e.metal > 0) {
       const [x, y] = Q(e.x, e.y);
       tg.strokeStyle = `rgba(0,0,0,${(.08 + .2 * (e.metal ?? .5)).toFixed(3)})`; tg.lineWidth = .7;
@@ -151,6 +140,18 @@ export function createVisual(canvas, getData) {
     g.globalAlpha = 1;
   }
 
+  function drawFootprints(s) {
+    const recent=s.events.filter(e=>(e.type==='step'||e.type==='person')&&footprintOpacity(e,s.time)>0).slice(-18);
+    for(const e of recent){
+      const [hx,hy]=e.heading||[1,0], side=(e.foot?1:-1)*.1;
+      const [x,y]=Q(e.x-hy*side,e.y+hx*side), alpha=footprintOpacity(e,s.time);
+      const seed=e.time*31.7+(e.index??0)*7;
+      g.save();g.translate(x,y);g.rotate(-Math.atan2(hy,hx)+(hash(seed)-.5)*.3);
+      g.strokeStyle=`rgba(0,0,0,${alpha})`;g.lineWidth=.7;
+      g.beginPath();g.moveTo(-.09*k,-.015*k);g.lineTo(.015*k,.012*k);g.lineTo(.1*k,-.006*k);g.stroke();g.restore();
+    }
+  }
+
   function drawRings(s) {
     const maxAge = Math.max(1.5, Math.min(8, (s.linger ?? 4) * .8)), walls = s.walls ?? 1, clip = walls > .5;
     for (const e of s.events) {
@@ -217,6 +218,7 @@ export function createVisual(canvas, getData) {
     drawWall(s);
     drawUnits(s);
     drawRings(s);
+    drawFootprints(s);
     drawFigures(s);
     g.globalAlpha = .03 + .08 * s.damp; g.fillStyle = grain; g.fillRect(0, 0, W, H); g.globalAlpha = 1;
   }

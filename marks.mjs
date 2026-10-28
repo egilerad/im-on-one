@@ -1,3 +1,9 @@
+export function footprintOpacity(event, time) {
+  const age=time-event.time;
+  if(age<0||age>=6)return 0;
+  return (event.type==='step'?.32:event.occluded?.04:.12)*(1-age/6)**2;
+}
+
 // rough marks: jagged spirals for people, irregular footprints. pure geometry in unit space.
 const TAU = Math.PI * 2;
 const hash = n => { const x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
