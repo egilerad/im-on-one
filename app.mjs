@@ -64,8 +64,10 @@ async function play() {
   running = true;
   clearInterval(timer); timer = setInterval(tick, 25);
   $('stop').hidden = false;
+  const video=$('video'); if(!video.hidden){video.currentTime=0;video.play().catch(()=>{$('announce').textContent='video could not play; try another mp4 or webm';});}
 }
 async function stop() {
+  $('video').pause();
   if (!running) return;
   frozen = engine.snapshot(ctx.currentTime);
   running = false; clearInterval(timer);
@@ -84,11 +86,20 @@ document.addEventListener('keydown', e => {
 document.addEventListener('dragover', e => e.preventDefault());
 document.addEventListener('drop', e => {
   e.preventDefault();
-  const file = [...(e.dataTransfer?.files || [])].find(f => f.type.startsWith('image/'));
-  if (!file || file.size > 15 * 1024 * 1024) return;
+  const file = [...(e.dataTransfer?.files || [])].find(f => /^(image|video)\//.test(f.type)||/\.(mp4|webm)$/i.test(f.name));
+  if (!file) return;
+  const isVideo=file.type.startsWith('video/')||/\.(mp4|webm)$/i.test(file.name);
+  if(file.size>(isVideo?500:15)*1024*1024){$('announce').textContent=isVideo?'video maximum 500 mb':'image maximum 15 mb';return;}
+  const video=$('video');video.pause();video.removeAttribute('src');video.load();video.hidden=true;
+  $('image').hidden=true;$('image').removeAttribute('src');
   if (imageURL) URL.revokeObjectURL(imageURL);
   imageURL = URL.createObjectURL(file);
-  $('image').src = imageURL; $('image').hidden = false;
+  if(isVideo){
+    video.muted=true;video.src=imageURL;video.hidden=false;
+    video.onerror=()=>{$('announce').textContent='this video cannot be decoded; try an h.264 mp4 or webm';};
+    video.load();
+    if(running)video.play().catch(()=>{$('announce').textContent='press play to enable background video';});
+  }else{$('image').src=imageURL;$('image').hidden=false;}
 });
 mark([]);
 code.focus();
