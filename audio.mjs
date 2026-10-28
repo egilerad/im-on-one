@@ -69,19 +69,19 @@ export function createEngine(ctx, start = ctx.currentTime) {
   const at = local => start + local;
   const param = (p, v, time, tau = pair.tau) => p.setTargetAtTime(v, Math.max(start, time), tau);
 
-  function step(time, level, panValue, cutoff) {
+  function step(time, level, panValue, cutoff, visitor = false) {
     const src = ctx.createBufferSource(), lp = ctx.createBiquadFilter(), g = ctx.createGain(), p = ctx.createStereoPanner();
     const listener=bodyAt(walker.s,walker.side),near=clamp(1-Math.min(listener.outer,listener.inner)/.8,0,1);
-    src.buffer = noise; lp.type = 'lowpass'; lp.frequency.value = Math.min(240,cutoff); lp.Q.value = -6; p.pan.value = clamp(panValue, -1, 1);
-    const duration=.7,curve=new Float32Array(128);
-    for(let i=0;i<curve.length;i++)curve[i]=level*.14*Math.sin(Math.PI*i/(curve.length-1))**2;
+    src.buffer = noise; lp.type = 'lowpass'; lp.frequency.value = Math.min(visitor?380:240,cutoff); lp.Q.value = -6; p.pan.value = clamp(panValue, -1, 1);
+    const duration=visitor?.95:.7,curve=new Float32Array(128);
+    for(let i=0;i<curve.length;i++)curve[i]=level*(visitor?.28:.14)*Math.sin(Math.PI*i/(curve.length-1))**2;
     g.gain.setValueCurveAtTime(curve,time,duration);
     const resonance=ctx.createBiquadFilter(),ringGain=ctx.createGain();
-    resonance.type='bandpass';resonance.frequency.value=170+100*near;resonance.Q.value=1.4+near*2;
+    resonance.type='bandpass';resonance.frequency.value=visitor?300:170+100*near;resonance.Q.value=visitor?.7:1.4+near*2;
     ringGain.gain.value=.6+near*1.6;
     src.connect(lp); lp.connect(g); g.connect(p); p.connect(dry);
-    g.connect(resonance);resonance.connect(ringGain);ringGain.connect(dry);
-    src.start(time, (time * 7.31) % .2); src.stop(time + duration + .15);
+    g.connect(resonance);resonance.connect(ringGain);ringGain.connect(p);
+    src.loop=true;src.start(time, (time * 7.31) % .04); src.stop(time + duration + .15);
     src.onended = () => { for(const n of [src,lp,g,p,resonance,ringGain])n.disconnect(); };
   }
   function strike(time, level, panValue, damp) {
@@ -118,13 +118,15 @@ export function createEngine(ctx, start = ctx.currentTime) {
     }
     for (const e of peopleSteps(values.people, peopleTime, ahead)) {
       const distance = Math.hypot(e.x - body.x, e.y - body.y), occluded = wallsNow > .5 && (Math.abs(e.r - body.r) > .9 || Math.abs(e.theta - body.theta) > Math.PI / 2);
-      step(at(e.time), .22 / (1 + distance * .7) * (occluded ? .15 : 1), panTo(body, e.x, e.y) * .8, occluded ? 320 : 1000 * (1 - .5 * damp) + 200);
+      // reflected presence remains audible around steel; smooth distance falloff, no global hiss.
+      const presence=(occluded?.55:1)/(1+distance*.18)/Math.sqrt(1+.3*(values.people-1));
+      step(at(e.time), .65*presence, panTo(body, e.x, e.y) * .8, occluded ? 420 : 600, true);
       remember({type: 'person', time: e.time, index: e.index, x: e.x, y: e.y, theta: e.theta, r: e.r, outer: e.outer, inner: e.inner, occluded, foot: e.foot, heading: [e.heading[0] * e.direction, e.heading[1] * e.direction]});
       // sparse soft wall contact; reflected presence, not another sharp hit.
       if (Math.floor(e.time*e.speed/.7)%4===0 && wallsNow>.5) {
         const r=e.side>0?e.r-e.inner:e.r+e.outer;
         const x=r*Math.cos(e.theta)*1.1,y=r*Math.sin(e.theta)*.9;
-        step(at(e.time+.06),.16/(1+distance*.7)*(occluded?.15:1),panTo(body,x,y)*.8,occluded?180:240);
+        step(at(e.time+.1),.4*presence,panTo(body,x,y)*.8,occluded?360:520,true);
         remember({type:'contact',time:e.time+.06,index:e.index,x,y,theta:e.theta,r});
       }
     }
