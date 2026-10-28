@@ -1,57 +1,101 @@
-# i'm on one — language reference
+# i'm on one — manual
 
-the empty editor is silence. every line is optional. type, then ⌘/ctrl + enter to apply the whole editor; esc stops. play after stop restarts at the entrance with current text. reload clears the editor. updates retain time, position and echo tails. this is expressive spatial sound, not measured sculpture acoustics.
+a livecoding walk through a steel spiral. it starts from nothing: an empty page, silence, and a small jagged spiral (your body) at the entrance. each line you write adds one thing. two sine tones raise the walls. the deeper you walk, the more the sound is dampened, and the longer it lingers.
 
-## body and walls
+## start
 
-| word | meaning | range; absent value |
+the page opens empty with the cursor ready. begin at low volume.
+
+- **⌘/ctrl + enter**: play (with an empty score, the clock starts in silence), or apply the edited score while playing
+- **esc**: stop
+- on touch screens, **play** also applies edits while playing
+
+nothing else is on screen. there are no sliders. the score is the semi-transparent text over the drawing. after you edit it, the text turns grey until you apply it. a line that can't be applied is underlined, and the instrument keeps going with that line's last good value.
+
+## the zero point
+
+an empty score is a valid score: nothing sounds, nothing moves, and nothing is drawn but your body. every word is optional, and **a word you haven't written adds nothing**:
+
+| not written | means |
+|---|---|
+| `sine`, `pair` | no tone, and no wall |
+| `walk` | standing still |
+| `side` | the middle of the corridor |
+| `metal` | no metal: units neither ring nor appear |
+| `people` | nobody else |
+| `linger` | dry (.2 s) |
+| `gain` | .12, the level a tone has once you write it |
+
+deleting a line takes its element away again. delete everything and you are back at zero. nothing is saved between visits: every reload starts empty.
+
+## the words
+
+one statement per line, in any order. each word appears at most once. `#` starts a comment.
+
+| word | what it is | range |
 |---|---|---|
-| sine | first sustained tone and floor edge | 30–2000 hz; absent = none |
-| pair | second tone and top edge | 30–2000 hz; absent or off = none |
-| gain | level of each sustained tone, not master volume | 0–.25; .12 |
-| walk | path speed, negative reverses | -2–2 m/s; 0 |
-| side | outer wall -1, inner wall +1 | -1–1; 0 |
-| people | other bodies, footsteps and localized wall encounters | 0–8 rounded; 0 |
-| linger | shared reflection decay target | .2–20 seconds; .2 |
+| `sine` | first wall tone, in hz; raises and ripples the floor edge of the steel | 30–2000 |
+| `pair` | second wall tone; raises the top edge and twists it. `pair off` is the same as no pair | 30–2000 |
+| `walk` | walking speed along the spiral, metres per second. negative walks back out | -2–2 |
+| `side` | where the body is in the corridor: -1 against the outer wall, 0 in the middle, 1 against the inner wall | -1–1 |
+| `metal` | brings in the judd units: how loud they ring when passed, plus metallic overtones on the tones | 0–1 |
+| `people` | number of other walkers | 0–8 |
+| `linger` | how long reflections hang in the air, in seconds | .2–20 |
+| `gain` | level of each tone | 0–.25 |
 
-`pair sine + 1/4` needs a `sine` line. `pair 165` can stand alone. a sine never implies walking. damping records deepest progress, not time waiting, and never lifts during the run.
+### arithmetic
 
-## object, action, rhythm and space
+every value is an expression: `+ - * / % ^ **`, parentheses, `sin()`, `cos()`, `abs()`, `pi`, and three live values:
 
-metal is now a world-wide resonant aura, not a placed box. it colors all existing sound: tones, movement, visitor contacts and their echoes. on its own it is silent. the drawing gains offset, broken metallic skins around the whole spiral. strike excites the whole field, not a localized object.
+- `t`: seconds since play
+- `depth`: how far into the spiral the body is, from 0 (entrance) to 1 (centre)
+- `sine`: the first tone's current value. it can be used in every other line, but only once a `sine` line exists; otherwise that line is rejected
 
-| word | independent function | range; absent value |
-|---|---|---|
-| metal | global metallic aura amount | 0–1; 0 |
-| place | legacy compatibility only; no effect on the global aura | 0–1; .12 |
-| size | whole-field resonance scale: larger = lower | .25–4; 1 |
-| strike | excitation strength | 0–1; 0 |
-| every | repetition interval | .25–60 s; 0 = one shot |
-| decay | source ring, distinct from room lingering | .1–12 s; 2 |
-| echo | reflected contribution of encounters | 0–1; .3 |
-| reach | visitor-contact listening-distance scale | .5–20 m; 6 |
+```text
+sine 110 + depth*40          # the walls rise as you go in
+pair sine + 1/4 + depth/2    # beating gets faster deeper inside
+walk 1/3 * (1 - depth/2)     # slow down near the centre
+side sin(t/5) * .9           # drift from wall to wall
+people 4 - depth*4           # the others thin out
+```
 
-with metal enabled, `strike .4` without every sounds once **each explicit apply**. continuous expression updates do not retrigger it. unrelated applies also strike if the one-shot line remains. delete strike when an apply should not sound a hit. `every 4` repeats every four seconds; removing strike stops new attacks but keeps old tails. removing every while strike remains returns to one-shot mode: that apply may strike once.
+expressions are re-evaluated about 40 times a second. `sin()` uses radians, so `sin(t/7)` takes 2·π·7 ≈ 44 seconds per cycle; `sin(2*pi*t/60)` takes exactly 60.
 
-size alters world resonances; strike excites the field; decay changes resonant emphasis and strike envelope; echo alters reflected contribution. place no longer locates anything. spatial attenuation, stereo and obstruction depend on the listener relative to the source. visitors interact at their own wall positions, heard from your moving position, not as a global murmur. this is not acoustic ray tracing.
+## what you hear and see
 
-## livecoding and calculation
+**the spiral.** a single steel wall winds inward for three turns, to a small chamber. the path is about 54 metres long, so `walk 1/3` reaches the centre in roughly 2¾ minutes. in the chamber the body keeps circling until you walk back out (negative `walk`).
 
-one statement per line, at most one of each word, any order. `#` comments. constants are enough: `every 3`, `size 2`, `walk 1/8`, `place 1/5`.
+**the walls are the sines.** before any tone there is no wall: footsteps ring out in the open, without echoes off steel, and their rings spread freely. write `sine` and the floor edge of the spiral fades in (over a second or so) as the tone sounds; the walls start reflecting and fluttering. write `pair` and the top edge appears. a tone entering from silence starts directly at its pitch; after that, edits glide (0.12 s) and keep phase. in the drawing:
+- the heavy line is the **floor edge**, rippling in proportion to `sine`;
+- the thin line is the **top edge**, rippling with `pair`;
+- the strands between them show the plate leaning, the torque. they appear only when both tones sound.
 
-arithmetic: `+ - * / % ^ **`, parentheses, `sin()`, `cos()`, `abs()`, `pi`. no tan. live values: `t` (global seconds since play), `depth` (current path progress 0–1), and `sine` (first tone's target, only when its line exists). a meaningful spatial relation: `linger 2 + depth*8`.
+the difference between `pair` and `sine` is the beat you hear, and the same relation makes the lean breathe: at `pair sine + 1/4` the plate leans in and out every four seconds. as in serra's torqued pieces, the top and floor edges follow different curves. your body turns with the sound only once a tone exists.
 
-expressions evaluate about 40 times per second. typing is staged: grey text changes nothing until apply. apply evaluates the **whole editor**, not selection. syntax errors reject the draft, preserving old music. a later runtime error underlines its line and holds its previous good value. controls are bounded; every below .25 seconds is rejected except 0.
+**dampening only accumulates.** damping comes from walking in: it rises with depth and never goes back down during a performance, even if you walk back out. standing at the entrance never dampens. it darkens the tones, footsteps and reflections, lowers the direct sound, and stretches lingering. the drawing gets grainier. stop and play again to start fresh.
 
-## subtraction and history
+**the body and the walls.** `side` places the body in the corridor. once the walls exist:
+- near a wall, that wall's reflection arrives sooner and louder and pans to its side, low frequencies swell, and the wall line darkens around you;
+- staying close leaves rubbed marks along the steel;
+- between the walls, sound flutters back and forth at a pitch set by the corridor width;
+- dashed lines connect the body to both walls and darken as you get closer.
 
-remove lines that refer to sine before removing sine. deleting a source leaves echoes and drawing traces; empty code does not reset body position, clock or damping. esc immediately silences and freezes; play then restarts. gain affects only sustained tones: deleting gain with a tone present returns its level to .12.
+**figures, footsteps, reflections.** your body is a black jagged spiral that changes shape a little with every step. the body steps every 0.7 m and leaves rough, gritty scuffs that slowly fade. each step sends a broken ring outward. with walls, the steel holds the ring inside the corridor, arcs come back from each wall (drawn from mirror positions behind the walls, the way a reflection behaves), and the walls keep faint marks where sound struck them. the rings travel at a slowed, visible speed, not 343 m/s.
 
-visuals remain overhead, grayscale, arial and lowercase: jagged body/visitor spirals, rough footprint scuffs, contact marks and reflected rings. drag a local image onto the page for a faint grayscale background. reload removes it. nothing is stored by the instrument.
+**judd's metal.** with `metal`, grey boxes appear at equal intervals (3.2 m) along the outer wall, like a row of identical units. walking past one rings it with clashing, struck-metal overtones, pitched from the tone. the ring sounds closer when you walk near the outer wall, and darker deeper inside. `metal` also adds these overtones to the tones themselves.
 
-## references and limits
+**other people.** each walker is a smaller grey jagged spiral moving at its own pace, in and out, with footprints and footsteps of their own. with walls, people behind steel sound muffled. more people add a faint murmur of presence and slightly shorten the reverberation, as bodies absorb sound.
 
-- serra's torqued spiral *2000*: https://www.diaart.org/exhibition/exhibitions-projects/richard-serra-exhibition
-- judd, industrial material: https://juddfoundation.org/wp-content/uploads/2016/04/Specific_Objects_1964.pdf
+**images.** drag your own image onto the page and it sits faintly in grey behind the drawing. it stays on your computer; reload to remove it.
 
-all sounds are synthesized, not gallery recordings. two user-pitched sustained voices; metal derives resonances. no microphone, midi, osc, samples, built-in recording, or true pause/resume. performance cue sheets are local rehearsal material and are not included in this public reference.
+## sources and limits
+
+- dia beacon's text on serra describes *2000* (2000) as a torqued spiral, a corridor that "unpredictably narrows or opens", upper and lower edges that "never align", and the body passing through space: https://www.diaart.org/exhibition/exhibitions-projects/richard-serra-exhibition
+- donald judd, "specific objects" (1964), on industrial materials and the single repeated unit: https://juddfoundation.org/wp-content/uploads/2016/04/Specific_Objects_1964.pdf
+
+this is an interpretation, not a reconstruction:
+- the spiral is schematic, not the plan of *2000*;
+- the sound is expressive, not measured from the sculpture;
+- footsteps, metal and people are synthesized, not gallery recordings.
+
+nothing is stored: no scores, no images, no tracking.

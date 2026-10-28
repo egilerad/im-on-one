@@ -1,9 +1,0 @@
-<!doctype html><script type="module">
-try {
- const {createEngine}=await import('../audio.mjs');
- async function render(walk,a=null){const rate=22050,c=new OfflineAudioContext(2,rate*12,rate),e=createEngine(c,0);const v={a,b:null,gain:.1,walk,side:0,metal:0,people:0,linger:3};e.update(v,0);for(let t=.025;t<12;t+=.025){if(t>=6&&t<6.025)e.update({...v,walk:0},t);e.tick(t);}const b=await c.startRendering();let peak=0,jump=0;const x=b.getChannelData(0);for(let i=1;i<x.length;i++){peak=Math.max(peak,Math.abs(x[i]));jump=Math.max(jump,Math.abs(x[i]-x[i-1]));}const en=(a,z)=>{let s=0;for(let i=a*rate;i<z*rate;i++)s+=x[i]**2;return s;};return {peak,jump,early:en(2,5),late:en(9,12),x};}
- const foot=await render(1);if(foot.jump>.005||foot.peak>.12)throw Error('harsh foot transient '+JSON.stringify({jump:foot.jump,peak:foot.peak}));if(foot.early<.001)throw Error('movement silent');
- const moving=await render(1,110),still=await render(0,110);const ratio=moving.early/still.early;if(Math.abs(ratio-1)<.15)throw Error('walking does not meaningfully transform tone '+ratio);
- window.movementResults={pass:true,foot:{peak:foot.peak,jump:foot.jump},movingToStillEnergyRatio:ratio};
-}catch(e){window.movementResults={pass:false,error:e.message};}
-</script>

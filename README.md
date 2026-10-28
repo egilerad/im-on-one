@@ -2,7 +2,7 @@
 
 **[play it](https://egilerad.github.io/im-on-one/)** · [manual](MANUAL.md)
 
-a livecoding walk through a torqued steel spiral. it starts from zero: an empty page, silence, your body as a small jagged spiral at the entrance. each line adds one thing. two sine tones raise the walls; the body walks in; the sound becomes more dampened and lingering as it goes. metal is a resonant aura across the whole sound world, not a placed object; it can be excited or pulsed independently of walking. visitors touch the walls as well as stepping, and their sound depends on your relative position. delete the lines and you are back at zero.
+a livecoding walk through a torqued steel spiral. it starts from zero: an empty page, silence, your body as a small jagged spiral at the entrance. each line adds one thing. two sine tones raise the walls; the body walks in; the sound becomes more dampened and lingering as it goes. judd-like metal units ring as you pass them. other people walk too. delete the lines and you are back at zero.
 
 ```text
 sine 110
@@ -10,14 +10,8 @@ pair sine + 1/4
 linger 3
 walk 1/15
 side sin(2*pi*t/40) * .8
-metal 1
-size 2
-place .18
-strike .4
-every 4
-decay 3
-echo .6
-people 1
+metal .4
+people 3
 ```
 
 **⌘/ctrl + enter** plays and applies edits, keeping the clock, phase and echoes. **esc** stops.
@@ -37,10 +31,8 @@ then open http://127.0.0.1:8782/.
 ```sh
 node --test tests/*.test.mjs        # language, spiral geometry, walking state, marks
 npm install --no-save playwright && npx playwright install chromium
-node tests/audio-runner.mjs         # real offline audio regression tests
-node tests/encounter-audio-runner.mjs # object, action, source resonance, space and visitor contact
-node tests/browser.mjs              # zero point, continuity, validation, stop and responsive layout
-node tests/material-browser.mjs     # one-shot on apply, repetition and visitor encounters
+node tests/audio-runner.mjs         # real offline audio: zero is silent, a lone sine is steady, beating, steps, metal, people, walls, damping, stability
+node tests/browser.mjs              # zero point, one line adds only itself, live update, errors, stop, restart, image drop, phone
 ```
 
 set `BASE_URL` to test another address. the tests check how the instrument behaves; they are not a listening judgement.

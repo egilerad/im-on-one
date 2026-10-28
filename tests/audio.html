@@ -61,10 +61,10 @@ try {
   results.steps = [energy(still.left), energy(walking.left)];
   if (!(energy(walking.left) > 1e-3 && energy(walking.left) > 50 * energy(still.left))) throw Error('no footsteps');
 
-  // placement no longer automatically excites metal on crossings
+  // passing judd units rings metal
   const metal = await render({...base, gain: 0, walk: 1, metal: 1}, 8);
   results.metal = energy(metal.left);
-  if (Math.abs(energy(metal.left)-energy(walking.left)) < .001) throw Error('aura did not color walking');
+  if (!(energy(metal.left) > 2 * energy(walking.left))) throw Error('units did not ring');
 
   // other people are audible even when the performer stands still
   const people = await render({...base, gain: 0, people: 4}, 10);
@@ -86,10 +86,9 @@ try {
   const deep = await render({...base, metal: .8}, 40, [{time: 4, values: {walk: 2}}, {time: 30, values: {walk: 0}}]);
   const entrance = await render({...base, metal: .8}, 40);
   results.bright = [bright(entrance.left, 36, 39), bright(deep.left, 36, 39)];
-  // after movement stops the transmission reopens; compare only after that release settles
-  results.deepStable = [energy(deep.left, 35, 37), energy(deep.left, 38, 40)];
+  results.deepStable = [energy(deep.left, 31, 33), energy(deep.left, 37, 39)];
   if (results.deepStable[1] > results.deepStable[0] * 1.2) throw Error('feedback grew deep inside');
-  if (!(energy(deep.left,36,39) < energy(entrance.left,36,39))) throw Error('sound did not dampen with depth');
+  if (!(results.bright[1] < results.bright[0] * .7)) throw Error('sound did not dampen with depth');
   if (!(deep.snapshot.damp > .5)) throw Error('damping state did not accumulate');
 
   // update keeps the oscillators and their phase
